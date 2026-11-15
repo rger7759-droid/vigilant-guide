@@ -1,0 +1,2365 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BTCUSD Real-Time Chart — Smart Money Concepts (SMC)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans Thai', system-ui, -apple-system, sans-serif;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  <div id="toast" class="fixed bottom-4 right-4 z-50 hidden max-w-sm rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 text-sm text-slate-100 shadow-2xl backdrop-blur"></div>
+
+  <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-800/80 pb-4">
+      <div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30 font-bold text-sm">₿</span>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">BTCUSD • Smart Money Concepts (SMC)</h1>
+          <span id="connBadge" class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-300 ring-1 ring-slate-700">
+            <span id="connDot" class="h-2 w-2 rounded-full bg-slate-400"></span>
+            <span id="connText">กำลังเชื่อมต่อ...</span>
+          </span>
+        </div>
+        <p class="mt-1 text-xs sm:text-sm text-slate-400">
+          คำนวณโครงสร้างตลาด (BOS / CHoCH), Order Blocks (OB), Fair Value Gaps (FVG) และโซน Premium/Discount อัตโนมัติ
+        </p>
+      </div>
+
+      <!-- Live Price Readout -->
+      <div class="flex flex-wrap items-center gap-4 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2.5">
+        <div>
+          <span class="block text-[11px] text-slate-400">ราคาล่าสุด (BTC/USD)</span>
+          <div class="flex items-baseline gap-2">
+            <span id="livePrice" class="text-2xl font-bold text-white tabular-nums">--</span>
+            <span id="liveChange" class="text-xs font-semibold tabular-nums text-slate-400">--</span>
+          </div>
+        </div>
+        <div class="h-8 w-px bg-slate-800 hidden sm:block"></div>
+        <div>
+          <span class="block text-[11px] text-slate-400">โครงสร้างตลาด (Bias)</span>
+          <span id="biasBadge" class="mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold bg-slate-800 text-slate-300">--</span>
+        </div>
+        <div>
+          <span class="block text-[11px] text-slate-400">ตำแหน่งราคา</span>
+          <span id="zoneBadge" class="mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold bg-slate-800 text-slate-300">--</span>
+        </div>
+        <div>
+          <span class="block text-[11px] text-slate-400">ความผันผวน (ATR 14)</span>
+          <span id="atrBadge" class="mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold bg-slate-800 text-slate-300 tabular-nums">--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Disconnected Notice Banner (shown only if live API is unreachable) -->
+    <div id="fallbackBanner" class="mt-4 hidden rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-200">
+      ไม่สามารถเชื่อมต่อ API ตลาดคริปโตสาธารณะ (Binance / Kraken) ได้ในเครือข่ายนี้ (ไม่มีการสร้างข้อมูลจำลอง) — กด "รีเฟรชตอนนี้" เพื่อลองใหม่ หรือดาวน์โหลดไฟล์ไปเปิดในเบราว์เซอร์บนเครื่องของคุณเอง
+    </div>
+
+    <!-- Controls Toolbar -->
+    <section class="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between rounded-xl border border-slate-800/80 bg-slate-900/50 p-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- Timeframe -->
+        <div class="flex items-center gap-1 rounded-lg bg-slate-950 p-1 border border-slate-800">
+          <button type="button" data-tf="5m" class="tf-btn rounded-md px-2.5 py-1 text-xs font-medium bg-indigo-600 text-white transition">5m</button>
+          <button type="button" data-tf="15m" class="tf-btn rounded-md px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white transition">15m</button>
+          <button type="button" data-tf="1h" class="tf-btn rounded-md px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white transition">1H</button>
+          <button type="button" data-tf="4h" class="tf-btn rounded-md px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white transition">4H</button>
+          <button type="button" data-tf="1d" class="tf-btn rounded-md px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white transition">1D</button>
+        </div>
+
+        <!-- Swing Length -->
+        <div class="flex items-center gap-2">
+          <label for="swingSelect" class="text-xs text-slate-400">Swing Length:</label>
+          <select id="swingSelect" class="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <option value="5">5 (ไว / Scalping)</option>
+            <option value="10" selected>10 (มาตรฐาน LuxAlgo)</option>
+            <option value="20">20 (โครงสร้างใหญ่)</option>
+          </select>
+        </div>
+
+        <!-- Spread/Fee -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <select id="brokerSelect" aria-label="บัญชีโบรกเกอร์" class="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
+            <option value="ex_raw" selected>Exness Raw (Com $2)</option>
+            <option value="ex_zero">Exness Zero (Com $4.375)</option>
+            <option value="ex_std">Exness Std/Pro (Com $0)</option>
+            <option value="xm_std">XM Std/Ultra (Com $0)</option>
+          </select>
+          <label for="feeInput" class="text-xs text-slate-400">Spread MT5 ($):</label>
+          <input id="feeInput" type="number" min="0" step="1" value="18" class="w-14 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 tabular-nums focus:border-indigo-500 focus:outline-none" />
+          <span id="totalCostBadge" class="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 tabular-nums">รวม $20.00</span>
+          <span id="liveSpreadBadge" class="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 tabular-nums">Binance Spread: --</span>
+        </div>
+      </div>
+
+      <!-- Layer Toggles & Refresh -->
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-slate-300 cursor-pointer">
+          <input id="chkStructure" type="checkbox" checked class="accent-indigo-500" />
+          BOS / CHoCH
+        </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-slate-300 cursor-pointer">
+          <input id="chkOB" type="checkbox" checked class="accent-emerald-500" />
+          Order Blocks (OB)
+        </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-slate-300 cursor-pointer">
+          <input id="chkHistZones" type="checkbox" checked class="accent-sky-400" />
+          โซนผล Win/Loss
+        </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-slate-300 cursor-pointer">
+          <input id="chkEQ" type="checkbox" checked class="accent-amber-500" />
+          Premium / Discount 50%
+        </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-cyan-300 cursor-pointer">
+          <input id="chkTightMode" type="checkbox" checked class="accent-cyan-400" />
+          เล่นแคบในกรอบ (Internal)
+        </label>
+        <label class="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs text-purple-300 cursor-pointer">
+          <input id="chkVWAP" type="checkbox" checked class="accent-purple-400" />
+          VWAP / POC &amp; Liquidity
+        </label>
+        <button id="replayToggleBtn" type="button" class="rounded-lg border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-300 hover:bg-violet-500/25 transition">
+          ⏱️ Time Machine
+        </button>
+
+        <select id="pollSpeedSelect" aria-label="ความเร็วอัปเดต" class="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-emerald-300 focus:border-emerald-500 focus:outline-none">
+          <option value="500" selected>ความเร็ว: 500ms (เร็วมาก)</option>
+          <option value="1000">ความเร็ว: 1s (เรียลไทม์)</option>
+          <option value="3000">ความเร็ว: 3s</option>
+          <option value="10000">ความเร็ว: 10s</option>
+        </select>
+        <button id="autoPollBtn" type="button" class="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 transition">
+          Live: เปิด (500ms)
+        </button>
+        <button id="refreshNowBtn" type="button" class="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 transition">
+          รีเฟรชตอนนี้
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Chart + Entry Zone Sidebar -->
+    <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <!-- Chart Container -->
+      <div class="lg:col-span-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-3 text-xs text-slate-400">
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-500"></span> Bullish OB (Demand)</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm bg-rose-500"></span> Bearish OB (Supply)</span>
+            <span class="inline-flex items-center gap-1"><span class="h-0.5 w-3 bg-amber-400"></span> EQ 50%</span>
+            <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm bg-cyan-400/70"></span> โซนเล่นแคบ (Internal OB)</span>
+            <span class="inline-flex items-center gap-1"><span class="h-0.5 w-3 bg-purple-400"></span> VWAP</span>
+            <span class="inline-flex items-center gap-1"><span class="h-0.5 w-3 border-t-2 border-dotted border-yellow-300"></span> EQH / EQL</span>
+          </div>
+          <span id="lastUpdateText" class="text-[11px] text-slate-500 tabular-nums">อัปเดตล่าสุด: --</span>
+        </div>
+        <div id="chartContainer" class="relative h-[430px] w-full rounded-xl overflow-hidden bg-slate-950">
+          <canvas id="smcOverlay" class="pointer-events-none absolute inset-0 z-10"></canvas>
+        </div>
+        <!-- Time Machine Replay Bar -->
+        <div id="replayBar" class="mt-3 hidden rounded-xl border border-violet-500/30 bg-violet-950/20 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-violet-300">โหมด Time Machine (Bar Replay)</span>
+              <span id="replayStepLabel" class="rounded bg-slate-900 px-2 py-0.5 text-[11px] text-slate-300 tabular-nums">แท่งที่ -- / --</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button id="replayPrevBtn" type="button" class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800">◀ ถอย</button>
+              <button id="replayPlayBtn" type="button" class="rounded-md bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-500">▶ เล่น</button>
+              <button id="replayNextBtn" type="button" class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800">ถัดไป ▶</button>
+              <button id="replayExitBtn" type="button" class="rounded-md border border-rose-500/40 bg-rose-500/15 px-2.5 py-1 text-xs text-rose-300 hover:bg-rose-500/25">กลับปัจจุบัน</button>
+            </div>
+          </div>
+          <input id="replaySlider" type="range" min="40" max="199" value="100" aria-label="เลื่อนเวลาทดสอบ" class="mt-2.5 w-full accent-violet-500 cursor-pointer" />
+        </div>
+
+        <!-- Live Simulated Running Orders (Auto OPEN + Manual Paper Trades) -->
+        <div class="mt-4 border-t border-slate-800/80 pt-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-white">ออเดอร์จำลองที่กำลังเปิดวิ่งอยู่ (Live Running Orders)</h2>
+              <p class="text-[11px] text-slate-400">แสดงกำไร/ขาดทุนลอยตัว (Floating P/L) อัปเดตสดทุก 500ms หัก Spread+Fee แล้ว</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="simLotSelect" aria-label="ขนาด Lot จำลอง" class="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">
+                <option value="0.01" selected>0.01 Lot</option>
+                <option value="0.05">0.05 Lot</option>
+                <option value="0.10">0.10 Lot</option>
+                <option value="1.00">1.00 Lot</option>
+              </select>
+              <button id="simOpenBuyBtn" type="button" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500 transition">+ จำลอง BUY</button>
+              <button id="simOpenSellBtn" type="button" class="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-500 transition">+ จำลอง SELL</button>
+              <span id="totalFloatingBadge" class="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-200 tabular-nums">P/L รวม: $0.00</span>
+            </div>
+          </div>
+          <div id="runningOrdersList" class="mt-3 space-y-2 text-xs">
+            <p class="text-slate-500">ยังไม่มีออเดอร์ที่กำลังเปิดวิ่งอยู่</p>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- SMC Entry Zones & Setup Panel -->
+      <aside class="lg:col-span-4 space-y-4">
+        <!-- Confluence & Order Flow Panel -->
+        <div id="confluenceCard" class="rounded-2xl border border-purple-500/30 bg-slate-900/90 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-purple-300">Confluence (VWAP • CVD • RSI • Liquidity)</span>
+            <span id="confluenceScoreBadge" class="rounded-md px-2 py-0.5 text-[11px] font-bold bg-slate-800 text-slate-300">--%</span>
+          </div>
+          <div id="confluenceBody" class="mt-2.5 space-y-1.5 text-xs text-slate-300">กำลังคำนวณ...</div>
+        </div>
+
+        <!-- Reversal & Exhaustion Radar Card -->
+        <div id="reversalCard" class="rounded-2xl border border-amber-500/30 bg-slate-900/90 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-300">ตัวจับจังหวะกลับตัว (Reversal Radar)</span>
+            <span id="reversalBadge" class="rounded-md px-2 py-0.5 text-[10px] font-bold bg-slate-800 text-slate-300">--</span>
+          </div>
+          <div id="reversalBody" class="mt-2 text-xs text-slate-300">กำลังวิเคราะห์แรงซื้อ-ขาย...</div>
+        </div>
+
+        <!-- Overall Trade Plan Status -->
+        <div id="overallStatusCard" class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">สรุปสถานะแผนเทรดตอนนี้</span>
+          <div id="overallStatusBody" class="mt-1.5 text-xs text-slate-300">กำลังประเมิน...</div>
+        </div>
+
+        <!-- Long Entry Zone Card -->
+        <div id="longZoneCard" class="rounded-2xl border border-emerald-500/30 bg-slate-900/80 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">โซนเข้า Buy (Bullish OB)</span>
+            <span id="longStatusBadge" class="rounded-md px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300">กำลังเช็ก...</span>
+          </div>
+          <div id="longZoneBody" class="mt-2.5 text-xs text-slate-300">กำลังคำนวณ...</div>
+        </div>
+
+        <!-- Short Entry Zone Card -->
+        <div id="shortZoneCard" class="rounded-2xl border border-rose-500/30 bg-slate-900/80 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-rose-400">โซนเข้า Sell (Bearish OB)</span>
+            <span id="shortStatusBadge" class="rounded-md px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300">กำลังเช็ก...</span>
+          </div>
+          <div id="shortZoneBody" class="mt-2.5 text-xs text-slate-300">กำลังคำนวณ...</div>
+        </div>
+
+        <!-- Tight / Internal Scalp Card -->
+        <div id="tightZoneCard" class="rounded-2xl border border-cyan-500/30 bg-slate-900/80 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-cyan-300">เล่นแคบในกรอบ (Internal Scalp)</span>
+            <span id="tightWinRateBadge" class="rounded-md px-2 py-0.5 text-[10px] font-semibold bg-cyan-500/15 text-cyan-300">Win --%</span>
+          </div>
+          <div id="tightZoneBody" class="mt-2.5 text-xs text-slate-300">กำลังคำนวณ...</div>
+        </div>
+
+        <!-- Active FVGs & Range -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Fair Value Gaps (FVG) ที่ยังไม่ถูกปิด</h2>
+          <div id="fvgList" class="mt-2.5 space-y-2 text-xs">
+            <p class="text-slate-500">กำลังสแกนหา FVG...</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- SMC Win/Loss Statistics (Separated: Tight Zone vs Normal Zone) -->
+    <section class="mt-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-5">
+      <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 id="statsRangeTitle" class="text-sm sm:text-base font-semibold text-white">สถิติความแม่นยำแยก 2 ระบบ: โซนแคบ vs โซนปกติ (ย้อนหลัง 1–2 เดือน)</h2>
+          <p class="text-[11px] text-slate-400">คำนวณจากแท่งเทียนจริงทั้งหมด • แยกสถิติรวม 1–2 เดือน และสถิติเฉพาะวันล่าสุดให้ชัดเจน</p>
+        </div>
+      </div>
+
+      <!-- 2-Column Stats Cards -->
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <!-- Type 1: Tight Zone (โซนแคบ) -->
+        <div class="rounded-2xl border border-cyan-500/30 bg-slate-950/60 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-cyan-300">แบบที่ 1: โซนแคบ (Internal Scalp)</span>
+              <span class="block text-[10px] text-slate-400">Swing = 3 • SL 0.25x ATR • TP1 0.8R (BE) / TP2 1.5R</span>
+            </div>
+            <span id="tightStatWinRate" class="rounded-lg bg-cyan-500/20 px-2.5 py-1 text-sm font-bold text-cyan-300 tabular-nums">--%</span>
+          </div>
+          <div class="mt-3 grid grid-cols-3 gap-2 text-center tabular-nums">
+            <div class="rounded-lg bg-slate-900 p-2 border border-slate-800">
+              <span class="block text-[10px] text-slate-400">เข้าทั้งหมด</span>
+              <span id="tightStatTotal" class="text-base font-bold text-white">0 ไม้</span>
+            </div>
+            <div class="rounded-lg bg-emerald-500/10 p-2 border border-emerald-500/20">
+              <span class="block text-[10px] text-emerald-300">ชนะ (TP2/BE)</span>
+              <span id="tightStatWins" class="text-base font-bold text-emerald-400">0 ไม้</span>
+            </div>
+            <div class="rounded-lg bg-rose-500/10 p-2 border border-rose-500/20">
+              <span class="block text-[10px] text-rose-300">แพ้ (SL)</span>
+              <span id="tightStatLosses" class="text-base font-bold text-rose-400">0 ไม้</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 tabular-nums">
+            <span id="tightSideBreakdown">Buy: -- | Sell: --</span>
+            <span id="tightTodaySummary" class="rounded bg-sky-500/15 px-2 py-0.5 text-sky-300">วันนี้: --</span>
+          </div>
+        </div>
+
+        <!-- Type 2: Normal Zone (โซนปกติ) -->
+        <div class="rounded-2xl border border-indigo-500/30 bg-slate-950/60 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">แบบที่ 2: โซนปกติ (Standard Swing OB)</span>
+              <span class="block text-[10px] text-slate-400">Swing = มาตรฐาน • SL 0.5x ATR • TP1 1.0R (BE) / TP2 2.0R</span>
+            </div>
+            <span id="statWinRate" class="rounded-lg bg-indigo-500/20 px-2.5 py-1 text-sm font-bold text-indigo-300 tabular-nums">--%</span>
+          </div>
+          <div class="mt-3 grid grid-cols-3 gap-2 text-center tabular-nums">
+            <div class="rounded-lg bg-slate-900 p-2 border border-slate-800">
+              <span class="block text-[10px] text-slate-400">เข้าทั้งหมด</span>
+              <span id="statTotal" class="text-base font-bold text-white">0 ไม้</span>
+            </div>
+            <div class="rounded-lg bg-emerald-500/10 p-2 border border-emerald-500/20">
+              <span class="block text-[10px] text-emerald-300">ชนะ (TP2/BE)</span>
+              <span id="statWins" class="text-base font-bold text-emerald-400">0 ไม้</span>
+            </div>
+            <div class="rounded-lg bg-rose-500/10 p-2 border border-rose-500/20">
+              <span class="block text-[10px] text-rose-300">แพ้ (SL)</span>
+              <span id="statLosses" class="text-base font-bold text-rose-400">0 ไม้</span>
+            </div>
+          </div>
+          <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 tabular-nums">
+            <span id="statsSideBreakdown">Buy: -- | Sell: --</span>
+            <span id="normalTodaySummary" class="rounded bg-sky-500/15 px-2 py-0.5 text-sky-300">วันนี้: --</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Simulated Trades with Filter Tabs -->
+      <div class="mt-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">ประวัติไม้ที่ราคาวิ่งเข้าโซนล่าสุด</h3>
+          <div class="flex items-center gap-1 rounded-lg bg-slate-950 p-1 border border-slate-800 text-[11px]">
+            <button type="button" data-hist-filter="all" class="hist-filter-btn rounded px-2.5 py-0.5 font-medium bg-indigo-600 text-white">ทั้งหมด</button>
+            <button type="button" data-hist-filter="tight" class="hist-filter-btn rounded px-2.5 py-0.5 font-medium text-slate-400 hover:text-white">เฉพาะโซนแคบ</button>
+            <button type="button" data-hist-filter="normal" class="hist-filter-btn rounded px-2.5 py-0.5 font-medium text-slate-400 hover:text-white">เฉพาะโซนปกติ</button>
+          </div>
+        </div>
+        <div id="tradeHistoryList" class="grid grid-cols-1 gap-2 md:grid-cols-2 text-xs max-h-72 overflow-y-auto pr-1"></div>
+      </div>
+    </section>
+
+    <!-- Bottom Structure & Order Block Tables -->
+    <section class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        <h2 class="text-sm font-semibold text-white">บันทึกโครงสร้างตลาดล่าสุด (BOS &amp; CHoCH)</h2>
+        <div id="structureLog" class="mt-3 space-y-2 text-xs"></div>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        <h2 class="text-sm font-semibold text-white">Order Blocks ที่ยังใช้งานได้ (Unmitigated OBs)</h2>
+        <div id="obLog" class="mt-3 space-y-2 text-xs"></div>
+      </div>
+    </section>
+
+    <footer class="mt-6 border-t border-slate-800/80 pt-4 text-[11px] text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <span>กราฟขับเคลื่อนโดย TradingView Lightweight Charts™ • ข้อมูลราคาจาก Public Crypto Market API</span>
+      <span>คำเตือน: อินดิเคเตอร์ SMC คำนวณเพื่อช่วยวิเคราะห์โซนราคาเท่านั้น ไม่ใช่คำแนะนำการลงทุน</span>
+    </footer>
+  </div>
+
+  <script>
+    const state = {
+      timeframe: '5m',
+      swingLength: 10,
+      showStructure: true,
+      showOB: true,
+      showHistZones: true,
+      showEQ: true,
+      showTight: true,
+      showVWAP: true,
+      useMtfFilter: true,
+      spreadUsd: 18,
+      commUsd: 2,
+      feeUsd: 20,
+      simLot: 0.01,
+      histFilter: 'all',
+      manualOrders: [],
+      mtf: { '15m': 'Neutral', '1h': 'Neutral' },
+      lastSMC: null,
+      lastVisibleCandles: [], // { anchorTime, anchorPrice, bias, points: [{time, value}], stepSec }
+      replayMode: false,
+      replayIndex: 100,
+      replayPlaying: false,
+      replayTimer: null,
+      autoPoll: true,
+      candles: [],
+      priceLines: [],
+      pollMs: 500,
+      tickTimer: null,
+      historyTimer: null,
+      tickBusy: false,
+      dataSourceName: ''
+    };
+
+    let chart = null;
+    let candleSeries = null;
+    let vwapSeries = null;
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(window.__smcToast);
+      window.__smcToast = setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    function fmtPrice(p) {
+      return Number(p).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtTime(unixSec) {
+      const d = new Date(unixSec * 1000);
+      return d.toLocaleString('th-TH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function initChart() {
+      const container = document.getElementById('chartContainer');
+      if (chart) return;
+
+      chart = LightweightCharts.createChart(container, {
+        layout: {
+          background: { type: 'solid', color: '#020617' },
+          textColor: '#94a3b8'
+        },
+        grid: {
+          vertLines: { color: '#0f172a' },
+          horzLines: { color: '#0f172a' }
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal
+        },
+        rightPriceScale: {
+          borderColor: '#1e293b'
+        },
+        timeScale: {
+          borderColor: '#1e293b',
+          timeVisible: true,
+          secondsVisible: false
+        }
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#f43f5e',
+        borderVisible: false,
+        wickUpColor: '#10b981',
+        wickDownColor: '#f43f5e'
+      });
+
+      vwapSeries = chart.addLineSeries({
+        color: '#c084fc',
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+        title: 'VWAP'
+      });
+
+
+      const ro = new ResizeObserver(entries => {
+        if (!entries.length || !chart) return;
+        const { width, height } = entries[0].contentRect;
+        chart.applyOptions({ width, height });
+        requestAnimationFrame(drawSMCOverlay);
+      });
+      ro.observe(container);
+
+      chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+        requestAnimationFrame(drawSMCOverlay);
+      });
+    }
+
+    function getTargetBarsForTF(interval) {
+      const map = { '5m': 8000, '15m': 4500, '1h': 1500, '4h': 1000, '1d': 1000 };
+      return map[interval] || 2000;
+    }
+
+    async function fetchWithTimeout(url, ms = 5000) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try {
+        return await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      } finally {
+        clearTimeout(t);
+      }
+    }
+
+    async function fetchBinanceBatch(baseUrl, interval, limit, endTimeMs = null) {
+      let url = `${baseUrl}?symbol=BTCUSDT&interval=${interval}&limit=${limit}`;
+      if (endTimeMs) url += `&endTime=${endTimeMs}`;
+      const res = await fetchWithTimeout(url, 5000);
+      if (!res.ok) return null;
+      const raw = await res.json();
+      return Array.isArray(raw) ? raw : null;
+    }
+
+    function parseBinanceRaw(allRaw) {
+      const seen = new Set();
+      const clean = [];
+      for (const k of allRaw) {
+        const t = Math.floor(k[0] / 1000);
+        if (seen.has(t)) continue;
+        seen.add(t);
+        clean.push({
+          time: t,
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5]) || 0,
+          takerBuyVol: parseFloat(k[9]) || 0
+        });
+      }
+      clean.sort((a, b) => a.time - b.time);
+      return clean;
+    }
+
+    async function fetchLiveCandles(interval, customLimit = null, onProgress = null) {
+      const targetBars = customLimit || getTargetBarsForTF(interval);
+      const bases = [
+        'https://data-api.binance.vision/api/v3/klines',
+        'https://api.binance.com/api/v3/klines'
+      ];
+
+      for (const base of bases) {
+        try {
+          const firstBatch = await fetchBinanceBatch(base, interval, Math.min(1000, targetBars), null);
+          if (firstBatch && firstBatch.length > 30) {
+            let allRaw = firstBatch;
+            const firstCandles = parseBinanceRaw(allRaw);
+            if (onProgress) onProgress({ source: 'Binance Live', candles: firstCandles });
+
+            let endTime = firstBatch[0][0] - 1;
+            const maxBatches = Math.ceil(targetBars / 1000);
+            for (let b = 1; b < maxBatches; b++) {
+              const batchLimit = Math.min(1000, targetBars - allRaw.length);
+              if (batchLimit <= 0) break;
+              try {
+                const raw = await fetchBinanceBatch(base, interval, batchLimit, endTime);
+                if (!raw || raw.length === 0) break;
+                allRaw = raw.concat(allRaw);
+                endTime = raw[0][0] - 1;
+                if (raw.length < batchLimit) break;
+              } catch (e) {
+                break;
+              }
+            }
+            return { source: 'Binance Live', candles: parseBinanceRaw(allRaw) };
+          }
+        } catch (err) {}
+      }
+
+      // Bybit public spot kline fallback
+      const bybitTf = { '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' }[interval] || '5';
+      try {
+        const res = await fetchWithTimeout(`https://api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=${bybitTf}&limit=1000`, 5000);
+        if (res.ok) {
+          const d = await res.json();
+          const list = d?.result?.list;
+          if (Array.isArray(list) && list.length > 30) {
+            const candles = list.map(k => ({
+              time: Math.floor(Number(k[0]) / 1000),
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4]),
+              volume: parseFloat(k[5]) || 0,
+              takerBuyVol: null
+            })).sort((a, b) => a.time - b.time);
+            return { source: 'Bybit Live', candles };
+          }
+        }
+      } catch (e) {}
+
+      // Coinbase Exchange fallback
+      const cbGran = { '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 }[interval] || 300;
+      try {
+        const res = await fetchWithTimeout(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=${cbGran}`, 5000);
+        if (res.ok) {
+          const raw = await res.json();
+          if (Array.isArray(raw) && raw.length > 30) {
+            const candles = raw.map(k => ({
+              time: Number(k[0]),
+              low: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              open: parseFloat(k[3]),
+              close: parseFloat(k[4]),
+              volume: parseFloat(k[5]) || 0,
+              takerBuyVol: null
+            })).sort((a, b) => a.time - b.time);
+            return { source: 'Coinbase Live', candles };
+          }
+        }
+      } catch (e) {}
+
+      // Kraken fallback
+      const krakenMin = { '5m': 5, '15m': 15, '1h': 60, '4h': 240, '1d': 1440 }[interval] || 15;
+      try {
+        const res = await fetch(`https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=${krakenMin}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const pairKey = Object.keys(data.result || {}).find(k => k !== 'last');
+          if (pairKey && Array.isArray(data.result[pairKey])) {
+            return {
+              source: 'Kraken Live',
+              candles: data.result[pairKey].slice(-limit).map(k => ({
+                time: Number(k[0]),
+                open: parseFloat(k[1]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                close: parseFloat(k[4]),
+                volume: parseFloat(k[6]) || 0,
+                takerBuyVol: null
+              }))
+            };
+          }
+        }
+      } catch (err) {
+        // fallback below
+      }
+
+      return {
+        source: 'Disconnected',
+        candles: []
+      };
+    }
+
+    function computeATR(candles, period = 14) {
+      if (!candles || candles.length < 2) return [];
+      const trs = [candles[0].high - candles[0].low];
+      for (let i = 1; i < candles.length; i++) {
+        const c = candles[i];
+        const prevClose = candles[i - 1].close;
+        const tr = Math.max(
+          c.high - c.low,
+          Math.abs(c.high - prevClose),
+          Math.abs(c.low - prevClose)
+        );
+        trs.push(tr);
+      }
+      const atrs = [];
+      let sum = 0;
+      for (let i = 0; i < trs.length; i++) {
+        sum += trs[i];
+        if (i < period) {
+          atrs.push(sum / (i + 1));
+        } else {
+          atrs.push((atrs[i - 1] * (period - 1) + trs[i]) / period);
+        }
+      }
+      return atrs;
+    }
+
+    function computeConfluence(candles, swingHighs, swingLows, bias, isDiscount, bullOB, bearOB) {
+      const n = candles.length;
+      if (n < 20) return null;
+
+      // 1. Rolling Session/Window VWAP (last 100 bars for responsive intraday anchor)
+      const vwapStart = Math.max(0, n - 100);
+      let cumPV = 0, cumV = 0;
+      const vwapLine = [];
+      for (let i = vwapStart; i < n; i++) {
+        const c = candles[i];
+        const typical = (c.high + c.low + c.close) / 3;
+        const v = c.volume || 0;
+        cumPV += typical * v;
+        cumV += v;
+        if (cumV > 0) {
+          vwapLine.push({ time: c.time, value: cumPV / cumV });
+        }
+      }
+      const currentVWAP = vwapLine.length ? vwapLine[vwapLine.length - 1].value : candles[n - 1].close;
+
+      // 2. Volume Profile POC (Point of Control over last 200 bars)
+      const vpStart = Math.max(0, n - 200);
+      let minP = Infinity, maxP = -Infinity;
+      for (let i = vpStart; i < n; i++) {
+        if (candles[i].low < minP) minP = candles[i].low;
+        if (candles[i].high > maxP) maxP = candles[i].high;
+      }
+      const bins = 24;
+      const binSize = Math.max(1, (maxP - minP) / bins);
+      const volBins = new Array(bins).fill(0);
+      for (let i = vpStart; i < n; i++) {
+        const mid = (candles[i].high + candles[i].low) / 2;
+        const idx = Math.min(bins - 1, Math.max(0, Math.floor((mid - minP) / binSize)));
+        volBins[idx] += (candles[i].volume || 0);
+      }
+      let pocIdx = 0;
+      for (let b = 1; b < bins; b++) {
+        if (volBins[b] > volBins[pocIdx]) pocIdx = b;
+      }
+      const pocPrice = minP + (pocIdx + 0.5) * binSize;
+
+      // 3. Real Order Flow CVD (Cumulative Volume Delta over last 50 bars from Binance Taker Buy Vol)
+      const cvdStart = Math.max(0, n - 50);
+      let cvd = 0;
+      let hasTakerData = false;
+      for (let i = cvdStart; i < n; i++) {
+        const c = candles[i];
+        if (c.takerBuyVol !== null && c.takerBuyVol !== undefined && c.volume > 0) {
+          hasTakerData = true;
+          const sellVol = c.volume - c.takerBuyVol;
+          cvd += (c.takerBuyVol - sellVol);
+        }
+      }
+
+      // 4. RSI(14)
+      let avgGain = 0, avgLoss = 0;
+      const rsiPeriod = 14;
+      for (let i = 1; i <= rsiPeriod && i < n; i++) {
+        const ch = candles[i].close - candles[i - 1].close;
+        if (ch >= 0) avgGain += ch; else avgLoss -= ch;
+      }
+      avgGain /= rsiPeriod;
+      avgLoss /= rsiPeriod;
+      for (let i = rsiPeriod + 1; i < n; i++) {
+        const ch = candles[i].close - candles[i - 1].close;
+        avgGain = (avgGain * (rsiPeriod - 1) + (ch > 0 ? ch : 0)) / rsiPeriod;
+        avgLoss = (avgLoss * (rsiPeriod - 1) + (ch < 0 ? -ch : 0)) / rsiPeriod;
+      }
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      const rsi = 100 - (100 / (1 + rs));
+
+      // 5. Equal Highs (EQH) / Equal Lows (EQL) Liquidity Pools (within 0.2%)
+      const eqh = [];
+      const eql = [];
+      for (let i = 1; i < swingHighs.length; i++) {
+        const a = swingHighs[i - 1], b = swingHighs[i];
+        if (Math.abs(a.price - b.price) / a.price <= 0.0022) {
+          eqh.push({ price: (a.price + b.price) / 2, t1: a.time, t2: b.time });
+        }
+      }
+      for (let i = 1; i < swingLows.length; i++) {
+        const a = swingLows[i - 1], b = swingLows[i];
+        if (Math.abs(a.price - b.price) / a.price <= 0.0022) {
+          eql.push({ price: (a.price + b.price) / 2, t1: a.time, t2: b.time });
+        }
+      }
+
+      // 6. Recent Liquidity Sweep Check (last 10 bars)
+      const lastBar = candles[n - 1];
+      let sweepMsg = 'ยังไม่พบการกวาดสภาพคล่องล่าสุด';
+      const prevSH = swingHighs.length ? swingHighs[swingHighs.length - 1] : null;
+      const prevSL = swingLows.length ? swingLows[swingLows.length - 1] : null;
+      for (let i = Math.max(0, n - 10); i < n; i++) {
+        const b = candles[i];
+        if (prevSL && b.low < prevSL.price && b.close > prevSL.price) {
+          sweepMsg = `Bullish Sweep ใต้ $${fmtPrice(prevSL.price)}`;
+        } else if (prevSH && b.high > prevSH.price && b.close < prevSH.price) {
+          sweepMsg = `Bearish Sweep เหนือ $${fmtPrice(prevSH.price)}`;
+        }
+      }
+
+      // 7. Confluence Score (0-100%)
+      let score = 0;
+      const lastClose = lastBar.close;
+      if (bias === 'Bullish') {
+        score += 25;
+        if (isDiscount) score += 20;
+        if (bullOB && lastClose >= bullOB.bottom && lastClose <= bullOB.top * 1.003) score += 20;
+        if (lastClose >= currentVWAP) score += 10;
+        if (!hasTakerData || cvd > 0) score += 15;
+        if (rsi < 65) score += 10;
+      } else if (bias === 'Bearish') {
+        score += 25;
+        if (!isDiscount) score += 20;
+        if (bearOB && lastClose <= bearOB.top && lastClose >= bearOB.bottom * 0.997) score += 20;
+        if (lastClose <= currentVWAP) score += 10;
+        if (!hasTakerData || cvd < 0) score += 15;
+        if (rsi > 35) score += 10;
+      } else {
+        score = 25;
+      }
+
+      // 8. Reversal & Exhaustion Detector (100% real candles + RSI + CVD + Sweep + CHoCH)
+      const rsiSeries = [];
+      let rGain = 0, rLoss = 0;
+      for (let i = 1; i < n; i++) {
+        const ch = candles[i].close - candles[i - 1].close;
+        if (i <= rsiPeriod) {
+          if (ch >= 0) rGain += ch; else rLoss -= ch;
+          if (i === rsiPeriod) {
+            rGain /= rsiPeriod; rLoss /= rsiPeriod;
+            const rs0 = rLoss === 0 ? 100 : rGain / rLoss;
+            rsiSeries.push({ i, rsi: 100 - (100 / (1 + rs0)), low: candles[i].low, high: candles[i].high });
+          }
+        } else {
+          rGain = (rGain * (rsiPeriod - 1) + (ch > 0 ? ch : 0)) / rsiPeriod;
+          rLoss = (rLoss * (rsiPeriod - 1) + (ch < 0 ? -ch : 0)) / rsiPeriod;
+          const rsiVal = 100 - (100 / (1 + (rLoss === 0 ? 100 : rGain / rLoss)));
+          rsiSeries.push({ i, rsi: rsiVal, low: candles[i].low, high: candles[i].high });
+        }
+      }
+
+      let bullDiv = false, bearDiv = false;
+      if (rsiSeries.length >= 25) {
+        const prevSeg = rsiSeries.slice(-25, -10);
+        const recSeg = rsiSeries.slice(-10);
+        const prevMinP = Math.min(...prevSeg.map(x => x.low));
+        const recMinP = Math.min(...recSeg.map(x => x.low));
+        const prevMinR = Math.min(...prevSeg.map(x => x.rsi));
+        const recMinR = Math.min(...recSeg.map(x => x.rsi));
+        if (recMinP < prevMinP && recMinR > prevMinR + 2) bullDiv = true;
+
+        const prevMaxP = Math.max(...prevSeg.map(x => x.high));
+        const recMaxP = Math.max(...recSeg.map(x => x.high));
+        const prevMaxR = Math.max(...prevSeg.map(x => x.rsi));
+        const recMaxR = Math.max(...recSeg.map(x => x.rsi));
+        if (recMaxP > prevMaxP && recMaxR < prevMaxR - 2) bearDiv = true;
+      }
+
+      // Recent CVD shift (last 5 bars delta vs prior 10 bars avg delta)
+      let recDelta = 0, prevDelta = 0;
+      if (hasTakerData && n >= 16) {
+        for (let i = n - 5; i < n; i++) recDelta += (candles[i].takerBuyVol - (candles[i].volume - candles[i].takerBuyVol));
+        for (let i = n - 15; i < n - 5; i++) prevDelta += (candles[i].takerBuyVol - (candles[i].volume - candles[i].takerBuyVol));
+        prevDelta /= 2; // normalize to 5-bar equivalent
+      }
+
+      // Wick absorption on last 3 bars
+      const last3 = candles.slice(-3);
+      const hasLowerWickAbsorb = last3.some(b => {
+        const body = Math.abs(b.close - b.open);
+        const lowerWick = Math.min(b.open, b.close) - b.low;
+        return lowerWick > body * 1.4 && lowerWick > 0;
+      });
+      const hasUpperWickAbsorb = last3.some(b => {
+        const body = Math.abs(b.close - b.open);
+        const upperWick = b.high - Math.max(b.open, b.close);
+        return upperWick > body * 1.4 && upperWick > 0;
+      });
+
+      const bullSignals = [];
+      if (rsi <= 32 || bullDiv) bullSignals.push(bullDiv ? 'Bullish RSI Divergence' : `RSI Oversold (${rsi.toFixed(1)})`);
+      if (sweepMsg.startsWith('Bullish Sweep')) bullSignals.push('กวาดสภาพคล่องล่าง (Sweep)');
+      if ((hasTakerData && prevDelta < 0 && recDelta > prevDelta * 0.5 && recDelta > -Math.abs(prevDelta) * 0.4) || hasLowerWickAbsorb) {
+        bullSignals.push('แรงขายเริ่มแผ่ว / ดูดซับไส้ล่าง');
+      }
+
+      const bearSignals = [];
+      if (rsi >= 68 || bearDiv) bearSignals.push(bearDiv ? 'Bearish RSI Divergence' : `RSI Overbought (${rsi.toFixed(1)})`);
+      if (sweepMsg.startsWith('Bearish Sweep')) bearSignals.push('กวาดสภาพคล่องบน (Sweep)');
+      if ((hasTakerData && prevDelta > 0 && recDelta < prevDelta * 0.5 && recDelta < Math.abs(prevDelta) * 0.4) || hasUpperWickAbsorb) {
+        bearSignals.push('แรงซื้อเริ่มแผ่ว / ดูดซับไส้บน');
+      }
+
+      return {
+        vwapLine,
+        currentVWAP,
+        pocPrice,
+        cvd,
+        hasTakerData,
+        rsi,
+        eqh: eqh.slice(-3),
+        eql: eql.slice(-3),
+        sweepMsg,
+        bullReversal: bullSignals,
+        bearReversal: bearSignals,
+        score: Math.min(100, score)
+      };
+    }
+
+    function computeSMC(candles, swingLen) {
+      const n = candles.length;
+      if (n < swingLen * 2 + 5) {
+        return { bias: 'Neutral', structures: [], orderBlocks: [], fvgs: [], swingHigh: null, swingLow: null };
+      }
+
+      const swingHighs = [];
+      const swingLows = [];
+
+      for (let i = swingLen; i < n - swingLen; i++) {
+        let isHigh = true;
+        let isLow = true;
+        for (let j = i - swingLen; j <= i + swingLen; j++) {
+          if (j === i) continue;
+          if (candles[j].high >= candles[i].high) isHigh = false;
+          if (candles[j].low <= candles[i].low) isLow = false;
+        }
+        if (isHigh) {
+          const prevH = swingHighs.length ? swingHighs[swingHighs.length - 1].price : null;
+          const lbl = prevH === null ? 'H' : (candles[i].high >= prevH ? 'HH' : 'LH');
+          swingHighs.push({ index: i, price: candles[i].high, time: candles[i].time, label: lbl });
+        }
+        if (isLow) {
+          const prevL = swingLows.length ? swingLows[swingLows.length - 1].price : null;
+          const lbl = prevL === null ? 'L' : (candles[i].low <= prevL ? 'LL' : 'HL');
+          swingLows.push({ index: i, price: candles[i].low, time: candles[i].time, label: lbl });
+        }
+      }
+
+      // Track Market Structure (BOS / CHoCH) & Order Blocks
+      let bias = 0; // 1 = Bullish, -1 = Bearish, 0 = Neutral
+      let activeSH = swingHighs.length ? swingHighs[0] : null;
+      let activeSL = swingLows.length ? swingLows[0] : null;
+      let shPtr = 0;
+      let slPtr = 0;
+
+      const structures = [];
+      const orderBlocks = [];
+
+      const startIdx = Math.min(
+        activeSH ? activeSH.index + 1 : swingLen,
+        activeSL ? activeSL.index + 1 : swingLen
+      );
+
+      for (let i = startIdx; i < n; i++) {
+        while (shPtr < swingHighs.length && swingHighs[shPtr].index < i) {
+          activeSH = swingHighs[shPtr];
+          shPtr++;
+        }
+        while (slPtr < swingLows.length && swingLows[slPtr].index < i) {
+          activeSL = swingLows[slPtr];
+          slPtr++;
+        }
+
+        const c = candles[i];
+
+        if (activeSH && c.close > activeSH.price && !activeSH.broken) {
+          activeSH.broken = true;
+          const type = bias === -1 ? 'CHoCH' : 'BOS';
+          bias = 1;
+          structures.push({
+            index: i,
+            time: c.time,
+            fromTime: activeSH.time,
+            dir: 'bullish',
+            type,
+            level: activeSH.price
+          });
+
+          // Find last bearish candle between activeSH.index and i
+          let obCandle = null;
+          for (let k = i - 1; k >= Math.max(0, activeSH.index - 5); k--) {
+            if (candles[k].close < candles[k].open) {
+              obCandle = candles[k];
+              break;
+            }
+          }
+          if (!obCandle && i > 0) obCandle = candles[i - 1];
+          if (obCandle) {
+            orderBlocks.push({
+              dir: 'bullish',
+              top: obCandle.high,
+              bottom: obCandle.low,
+              time: obCandle.time,
+              createdIdx: i,
+              mitigated: false
+            });
+          }
+        }
+
+        if (activeSL && c.close < activeSL.price && !activeSL.broken) {
+          activeSL.broken = true;
+          const type = bias === 1 ? 'CHoCH' : 'BOS';
+          bias = -1;
+          structures.push({
+            index: i,
+            time: c.time,
+            fromTime: activeSL.time,
+            dir: 'bearish',
+            type,
+            level: activeSL.price
+          });
+
+          // Find last bullish candle
+          let obCandle = null;
+          for (let k = i - 1; k >= Math.max(0, activeSL.index - 5); k--) {
+            if (candles[k].close > candles[k].open) {
+              obCandle = candles[k];
+              break;
+            }
+          }
+          if (!obCandle && i > 0) obCandle = candles[i - 1];
+          if (obCandle) {
+            orderBlocks.push({
+              dir: 'bearish',
+              top: obCandle.high,
+              bottom: obCandle.low,
+              time: obCandle.time,
+              createdIdx: i,
+              mitigated: false
+            });
+          }
+        }
+
+        // Check OB mitigation on subsequent bars
+        for (const ob of orderBlocks) {
+          if (ob.mitigated || i <= ob.createdIdx) continue;
+          if (ob.dir === 'bullish' && c.close < ob.bottom) {
+            ob.mitigated = true;
+          } else if (ob.dir === 'bearish' && c.close > ob.top) {
+            ob.mitigated = true;
+          }
+        }
+      }
+
+      // Fair Value Gaps (FVG)
+      const fvgs = [];
+      for (let i = 2; i < n; i++) {
+        const c0 = candles[i - 2];
+        const c2 = candles[i];
+        if (c2.low > c0.high) {
+          const gap = { dir: 'bullish', top: c2.low, bottom: c0.high, time: candles[i - 1].time, idx: i, filled: false };
+          for (let j = i + 1; j < n; j++) {
+            if (candles[j].low <= gap.bottom) { gap.filled = true; break; }
+          }
+          if (!gap.filled) fvgs.push(gap);
+        } else if (c2.high < c0.low) {
+          const gap = { dir: 'bearish', top: c0.low, bottom: c2.high, time: candles[i - 1].time, idx: i, filled: false };
+          for (let j = i + 1; j < n; j++) {
+            if (candles[j].high >= gap.top) { gap.filled = true; break; }
+          }
+          if (!gap.filled) fvgs.push(gap);
+        }
+      }
+
+      const atrs = computeATR(candles, 14);
+      const currentATR = atrs.length ? atrs[atrs.length - 1] : (candles[n - 1].close * 0.004);
+
+      // Simulate Volatility-Adaptive Win/Loss (ATR SL + TP1 Breakeven + TP2)
+      const trades = [];
+      for (const ob of orderBlocks) {
+        const localATR = atrs[ob.createdIdx] || currentATR;
+        const entry = ob.dir === 'bullish' ? ob.top : ob.bottom;
+        const slBuffer = localATR * 0.5;
+        const sl = ob.dir === 'bullish' ? ob.bottom - slBuffer : ob.top + slBuffer;
+        const risk = Math.abs(entry - sl);
+        if (risk <= 0) continue;
+
+        const tp1 = ob.dir === 'bullish' ? entry + risk * 1.0 : entry - risk * 1.0;
+        const tp2 = ob.dir === 'bullish' ? entry + Math.min(risk * 2.0, localATR * 2.5) : entry - Math.min(risk * 2.0, localATR * 2.5);
+
+        let triggered = false;
+        let hitTP1 = false;
+        let triggerTime = null;
+        let exitTime = null;
+        let outcome = 'OPEN';
+
+        for (let j = ob.createdIdx + 1; j < n; j++) {
+          const bar = candles[j];
+          if (!triggered) {
+            if (ob.dir === 'bullish' && bar.low <= ob.top && bar.high >= ob.bottom) {
+              triggered = true;
+              triggerTime = bar.time;
+              if (bar.low <= sl) { outcome = 'LOSS'; exitTime = bar.time; break; }
+              if (bar.high >= tp1) hitTP1 = true;
+              if (bar.high >= tp2) { outcome = 'WIN_TP2'; exitTime = bar.time; break; }
+            } else if (ob.dir === 'bearish' && bar.high >= ob.bottom && bar.low <= ob.top) {
+              triggered = true;
+              triggerTime = bar.time;
+              if (bar.high >= sl) { outcome = 'LOSS'; exitTime = bar.time; break; }
+              if (bar.low <= tp1) hitTP1 = true;
+              if (bar.low <= tp2) { outcome = 'WIN_TP2'; exitTime = bar.time; break; }
+            }
+          } else {
+            const activeSL = hitTP1 ? entry : sl; // Trailing Breakeven after TP1
+            if (ob.dir === 'bullish') {
+              if (bar.low <= activeSL) { outcome = hitTP1 ? 'WIN_BE' : 'LOSS'; exitTime = bar.time; break; }
+              if (!hitTP1 && bar.high >= tp1) hitTP1 = true;
+              if (bar.high >= tp2) { outcome = 'WIN_TP2'; exitTime = bar.time; break; }
+            } else {
+              if (bar.high >= activeSL) { outcome = hitTP1 ? 'WIN_BE' : 'LOSS'; exitTime = bar.time; break; }
+              if (!hitTP1 && bar.low <= tp1) hitTP1 = true;
+              if (bar.low <= tp2) { outcome = 'WIN_TP2'; exitTime = bar.time; break; }
+            }
+          }
+        }
+
+        if (triggered) {
+          trades.push({
+            dir: ob.dir,
+            time: triggerTime,
+            obTime: ob.time,
+            obTop: ob.top,
+            obBottom: ob.bottom,
+            exitTime: exitTime || candles[n - 1].time,
+            entry,
+            sl,
+            tp1,
+            tp: tp2,
+            outcome
+          });
+        }
+      }
+
+      const winsTP2 = trades.filter(t => t.outcome === 'WIN_TP2').length;
+      const winsBE = trades.filter(t => t.outcome === 'WIN_BE').length;
+      const totalWins = winsTP2 + winsBE;
+      const losses = trades.filter(t => t.outcome === 'LOSS').length;
+      const openCount = trades.filter(t => t.outcome === 'OPEN').length;
+      const closed = totalWins + losses;
+      const winRate = closed > 0 ? ((totalWins / closed) * 100).toFixed(1) : '--';
+      const buyWins = trades.filter(t => t.dir === 'bullish' && (t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE')).length;
+      const buyLosses = trades.filter(t => t.dir === 'bullish' && t.outcome === 'LOSS').length;
+      const sellWins = trades.filter(t => t.dir === 'bearish' && (t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE')).length;
+      const sellLosses = trades.filter(t => t.dir === 'bearish' && t.outcome === 'LOSS').length;
+
+      // Latest Day (Today) Stats
+      const latestDayDate = new Date(candles[n - 1].time * 1000);
+      const latestDayKey = latestDayDate.toDateString();
+      const latestDayLabel = latestDayDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      const todayTrades = trades.filter(t => new Date(t.time * 1000).toDateString() === latestDayKey);
+      const todayWins = todayTrades.filter(t => t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE').length;
+      const todayLosses = todayTrades.filter(t => t.outcome === 'LOSS').length;
+      const todayClosed = todayWins + todayLosses;
+      const todayWinRate = todayClosed > 0 ? ((todayWins / todayClosed) * 100).toFixed(1) : '--';
+      const spanDays = Math.max(1, Math.round((candles[n - 1].time - candles[0].time) / 86400));
+
+      const recentSH = swingHighs.length ? swingHighs[swingHighs.length - 1].price : Math.max(...candles.slice(-40).map(c => c.high));
+      const recentSL = swingLows.length ? swingLows[swingLows.length - 1].price : Math.min(...candles.slice(-40).map(c => c.low));
+
+      // Internal / Tight Structure (len = 3) inside the standard range
+      const intLen = 3;
+      const intHighs = [];
+      const intLows = [];
+      for (let i = intLen; i < n - intLen; i++) {
+        let isH = true, isL = true;
+        for (let j = i - intLen; j <= i + intLen; j++) {
+          if (j === i) continue;
+          if (candles[j].high >= candles[i].high) isH = false;
+          if (candles[j].low <= candles[i].low) isL = false;
+        }
+        if (isH) intHighs.push({ index: i, price: candles[i].high, time: candles[i].time });
+        if (isL) intLows.push({ index: i, price: candles[i].low, time: candles[i].time });
+      }
+
+      const internalOBs = [];
+      let iHPtr = 0, iLPtr = 0;
+      let curIH = intHighs.length ? intHighs[0] : null;
+      let curIL = intLows.length ? intLows[0] : null;
+      for (let i = intLen + 1; i < n; i++) {
+        while (iHPtr < intHighs.length && intHighs[iHPtr].index < i) { curIH = intHighs[iHPtr]; iHPtr++; }
+        while (iLPtr < intLows.length && intLows[iLPtr].index < i) { curIL = intLows[iLPtr]; iLPtr++; }
+        const c = candles[i];
+        if (curIH && c.close > curIH.price && !curIH.broken) {
+          curIH.broken = true;
+          let obC = candles[i - 1];
+          for (let k = i - 1; k >= Math.max(0, curIH.index - 3); k--) {
+            if (candles[k].close < candles[k].open) { obC = candles[k]; break; }
+          }
+          if (obC) internalOBs.push({ dir: 'bullish', top: obC.high, bottom: obC.low, time: obC.time, createdIdx: i, mitigated: false });
+        }
+        if (curIL && c.close < curIL.price && !curIL.broken) {
+          curIL.broken = true;
+          let obC = candles[i - 1];
+          for (let k = i - 1; k >= Math.max(0, curIL.index - 3); k--) {
+            if (candles[k].close > candles[k].open) { obC = candles[k]; break; }
+          }
+          if (obC) internalOBs.push({ dir: 'bearish', top: obC.high, bottom: obC.low, time: obC.time, createdIdx: i, mitigated: false });
+        }
+        for (const ob of internalOBs) {
+          if (ob.mitigated || i <= ob.createdIdx) continue;
+          if (ob.dir === 'bullish' && c.close < ob.bottom) ob.mitigated = true;
+          if (ob.dir === 'bearish' && c.close > ob.top) ob.mitigated = true;
+        }
+      }
+
+      // Simulate Tight Scalping Stats (SL 0.25x ATR, TP1 0.8R BE, TP2 1.5R)
+      const tightTrades = [];
+      for (const ob of internalOBs) {
+        const lATR = atrs[ob.createdIdx] || currentATR;
+        const entry = ob.dir === 'bullish' ? ob.top : ob.bottom;
+        const sl = ob.dir === 'bullish' ? ob.bottom - lATR * 0.25 : ob.top + lATR * 0.25;
+        const risk = Math.abs(entry - sl);
+        if (risk <= 0) continue;
+        const tp1 = ob.dir === 'bullish' ? entry + risk * 0.8 : entry - risk * 0.8;
+        const tp2 = ob.dir === 'bullish' ? entry + risk * 1.5 : entry - risk * 1.5;
+        let trig = false, be = false, trigTime = null, out = 'OPEN';
+        for (let j = ob.createdIdx + 1; j < n; j++) {
+          const b = candles[j];
+          if (!trig) {
+            if (ob.dir === 'bullish' && b.low <= ob.top && b.high >= ob.bottom) {
+              trig = true; trigTime = b.time;
+              if (b.low <= sl) { out = 'LOSS'; break; }
+              if (b.high >= tp1) be = true;
+              if (b.high >= tp2) { out = 'WIN_TP2'; break; }
+            } else if (ob.dir === 'bearish' && b.high >= ob.bottom && b.low <= ob.top) {
+              trig = true; trigTime = b.time;
+              if (b.high >= sl) { out = 'LOSS'; break; }
+              if (b.low <= tp1) be = true;
+              if (b.low <= tp2) { out = 'WIN_TP2'; break; }
+            }
+          } else {
+            const actSL = be ? entry : sl;
+            if (ob.dir === 'bullish') {
+              if (b.low <= actSL) { out = be ? 'WIN_BE' : 'LOSS'; break; }
+              if (!be && b.high >= tp1) be = true;
+              if (b.high >= tp2) { out = 'WIN_TP2'; break; }
+            } else {
+              if (b.high >= actSL) { out = be ? 'WIN_BE' : 'LOSS'; break; }
+              if (!be && b.low <= tp1) be = true;
+              if (b.low <= tp2) { out = 'WIN_TP2'; break; }
+            }
+          }
+        }
+        if (trig) {
+          tightTrades.push({ zoneType: 'tight', dir: ob.dir, time: trigTime, entry, sl, tp1, tp: tp2, outcome: out });
+        }
+      }
+      const tWins = tightTrades.filter(t => t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE').length;
+      const tWinsTP2 = tightTrades.filter(t => t.outcome === 'WIN_TP2').length;
+      const tWinsBE = tightTrades.filter(t => t.outcome === 'WIN_BE').length;
+      const tLosses = tightTrades.filter(t => t.outcome === 'LOSS').length;
+      const tOpen = tightTrades.filter(t => t.outcome === 'OPEN').length;
+      const tClosed = tWins + tLosses;
+      const tightWinRate = tClosed > 0 ? ((tWins / tClosed) * 100).toFixed(1) : '--';
+      const tBuyW = tightTrades.filter(t => t.dir === 'bullish' && (t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE')).length;
+      const tBuyL = tightTrades.filter(t => t.dir === 'bullish' && t.outcome === 'LOSS').length;
+      const tSellW = tightTrades.filter(t => t.dir === 'bearish' && (t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE')).length;
+      const tSellL = tightTrades.filter(t => t.dir === 'bearish' && t.outcome === 'LOSS').length;
+      const tTodayTrades = tightTrades.filter(t => new Date(t.time * 1000).toDateString() === latestDayKey);
+      const tTodayW = tTodayTrades.filter(t => t.outcome === 'WIN_TP2' || t.outcome === 'WIN_BE').length;
+      const tTodayL = tTodayTrades.filter(t => t.outcome === 'LOSS').length;
+      const tTodayClosed = tTodayW + tTodayL;
+      const tTodayWR = tTodayClosed > 0 ? ((tTodayW / tTodayClosed) * 100).toFixed(1) : '--';
+
+      const eqMid = (recentSH + recentSL) / 2;
+      const curPrice = candles[n - 1].close;
+      const biasStr = bias === 1 ? 'Bullish' : bias === -1 ? 'Bearish' : 'Neutral';
+      const activeBullOB = orderBlocks.filter(ob => !ob.mitigated && ob.dir === 'bullish').slice(-1)[0];
+      const activeBearOB = orderBlocks.filter(ob => !ob.mitigated && ob.dir === 'bearish').slice(-1)[0];
+      const confluence = computeConfluence(candles, swingHighs, swingLows, biasStr, curPrice <= eqMid, activeBullOB, activeBearOB);
+
+      return {
+        bias: biasStr,
+        atr: currentATR,
+        confluence,
+        structures: structures.slice(-12).reverse(),
+        swings: [...swingHighs.slice(-10).map(s => ({ ...s, kind: 'high' })), ...swingLows.slice(-10).map(s => ({ ...s, kind: 'low' }))],
+        orderBlocks: orderBlocks.filter(ob => !ob.mitigated).slice(-6).reverse(),
+        internalOBs: internalOBs.filter(ob => !ob.mitigated).slice(-4).reverse(),
+        tightStats: { total: tightTrades.length, wins: tWins, winsTP2: tWinsTP2, winsBE: tWinsBE, losses: tLosses, openCount: tOpen, winRate: tightWinRate, buyWins: tBuyW, buyLosses: tBuyL, sellWins: tSellW, sellLosses: tSellL, today: { label: latestDayLabel, total: tTodayTrades.length, wins: tTodayW, losses: tTodayL, winRate: tTodayWR }, allTrades: tightTrades },
+        fvgs: fvgs.slice(-5).reverse(),
+        swingHigh: recentSH,
+        swingLow: recentSL,
+        stats: {
+          total: trades.length,
+          winsTP2,
+          winsBE,
+          totalWins,
+          losses,
+          openCount,
+          winRate,
+          buyWins,
+          buyLosses,
+          sellWins,
+          sellLosses,
+          spanDays,
+          today: { label: latestDayLabel, total: todayTrades.length, wins: todayWins, losses: todayLosses, winRate: todayWinRate },
+          allTrades: trades,
+          trades: trades.slice(-30).reverse()
+        }
+      };
+    }
+
+    function drawSMCOverlay() {
+      const canvas = document.getElementById('smcOverlay');
+      const container = document.getElementById('chartContainer');
+      if (!canvas || !container || !chart || !candleSeries || !state.lastSMC || !state.lastVisibleCandles.length) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      const ts = chart.timeScale();
+      const smc = state.lastSMC;
+      const lastBar = state.lastVisibleCandles[state.lastVisibleCandles.length - 1];
+      const rightX = ts.timeToCoordinate(lastBar.time);
+      const maxPlotX = rightX !== null ? Math.min(w - 55, rightX + 35) : w - 55;
+
+      // 0. Draw ALL Historical Entered Win/Loss Zones
+      if (state.showHistZones && smc.stats && smc.stats.allTrades) {
+        for (const tr of smc.stats.allTrades) {
+          const yTop = candleSeries.priceToCoordinate(tr.obTop);
+          const yBot = candleSeries.priceToCoordinate(tr.obBottom);
+          const x1 = ts.timeToCoordinate(tr.obTime);
+          const x2 = ts.timeToCoordinate(tr.exitTime);
+          if (yTop === null || yBot === null || (x1 === null && x2 === null)) continue;
+
+          const startX = x1 !== null ? x1 : 0;
+          const endX = x2 !== null ? Math.max(startX + 20, x2) : maxPlotX;
+          const boxY = Math.min(yTop, yBot);
+          const boxH = Math.max(6, Math.abs(yBot - yTop));
+
+          const isWin = tr.outcome === 'WIN_TP2';
+          const isBE = tr.outcome === 'WIN_BE';
+          const isLoss = tr.outcome === 'LOSS';
+
+          ctx.save();
+          ctx.fillStyle = isWin ? 'rgba(16, 185, 129, 0.14)' : isBE ? 'rgba(56, 189, 248, 0.14)' : isLoss ? 'rgba(244, 63, 94, 0.14)' : 'rgba(245, 158, 11, 0.14)';
+          ctx.strokeStyle = isWin ? 'rgba(52, 211, 153, 0.8)' : isBE ? 'rgba(56, 189, 248, 0.8)' : isLoss ? 'rgba(251, 113, 133, 0.8)' : 'rgba(251, 191, 36, 0.8)';
+          ctx.lineWidth = 1.2;
+          if (!isWin) ctx.setLineDash([3, 2]);
+          ctx.fillRect(startX, boxY, endX - startX, boxH);
+          ctx.strokeRect(startX, boxY, endX - startX, boxH);
+          ctx.restore();
+
+          const tag = isWin ? `✓ ${tr.dir === 'bullish' ? 'BUY' : 'SELL'} WIN`
+                    : isBE ? `✓ ${tr.dir === 'bullish' ? 'BUY' : 'SELL'} BE`
+                    : isLoss ? `✕ ${tr.dir === 'bullish' ? 'BUY' : 'SELL'} LOSS`
+                    : `● ${tr.dir === 'bullish' ? 'BUY' : 'SELL'} OPEN`;
+          ctx.font = '700 9px Inter, sans-serif';
+          ctx.fillStyle = isWin ? '#6ee7b7' : isBE ? '#7dd3fc' : isLoss ? '#fda4af' : '#fcd34d';
+          ctx.fillText(tag, Math.max(4, startX + 3), boxY - 3 > 10 ? boxY - 3 : boxY + 10);
+        }
+      }
+
+      // 0.5 Draw Tight Internal OB Boxes (Scalp inside Standard Range)
+      if (state.showTight && smc.internalOBs) {
+        for (const iob of smc.internalOBs) {
+          const yTop = candleSeries.priceToCoordinate(iob.top);
+          const yBot = candleSeries.priceToCoordinate(iob.bottom);
+          let x1 = ts.timeToCoordinate(iob.time);
+          if (yTop === null || yBot === null) continue;
+          if (x1 === null) x1 = 0;
+          const x2 = Math.max(x1 + 20, maxPlotX);
+          const boxY = Math.min(yTop, yBot);
+          const boxH = Math.max(4, Math.abs(yBot - yTop));
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(34, 211, 238, 0.10)';
+          ctx.strokeStyle = 'rgba(34, 211, 238, 0.70)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([2, 2]);
+          ctx.fillRect(x1, boxY, x2 - x1, boxH);
+          ctx.strokeRect(x1, boxY, x2 - x1, boxH);
+          ctx.restore();
+
+          ctx.font = '600 9px Inter, sans-serif';
+          ctx.fillStyle = '#67e8f9';
+          ctx.fillText(iob.dir === 'bullish' ? 'Tight Buy' : 'Tight Sell', Math.max(4, x1 + 4), boxY - 2 > 10 ? boxY - 2 : boxY + 10);
+        }
+      }
+
+      // 1. Draw Shaded Active Unmitigated Order Block Boxes
+      if (state.showOB && smc.orderBlocks) {
+        for (const ob of smc.orderBlocks) {
+          const yTop = candleSeries.priceToCoordinate(ob.top);
+          const yBot = candleSeries.priceToCoordinate(ob.bottom);
+          let x1 = ts.timeToCoordinate(ob.time);
+          if (yTop === null || yBot === null) continue;
+          if (x1 === null) x1 = 0;
+          const x2 = Math.max(x1 + 24, maxPlotX);
+          const boxY = Math.min(yTop, yBot);
+          const boxH = Math.max(4, Math.abs(yBot - yTop));
+
+          const isBull = ob.dir === 'bullish';
+          ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.16)' : 'rgba(244, 63, 94, 0.16)';
+          ctx.strokeStyle = isBull ? 'rgba(16, 185, 129, 0.65)' : 'rgba(244, 63, 94, 0.65)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(x1, boxY, x2 - x1, boxH);
+          ctx.strokeRect(x1, boxY, x2 - x1, boxH);
+
+          ctx.font = '600 10px Inter, sans-serif';
+          ctx.fillStyle = isBull ? '#34d399' : '#fb7185';
+          ctx.fillText(isBull ? 'Bullish OB' : 'Bearish OB', Math.max(4, x1 + 4), boxY - 3 > 10 ? boxY - 3 : boxY + 11);
+        }
+      }
+
+      // 2. Draw Horizontal BOS / CHoCH Lines + Labels & HH/HL/LH/LL Swings
+      if (state.showStructure) {
+        if (smc.structures) {
+          for (const st of smc.structures) {
+            const x1 = ts.timeToCoordinate(st.fromTime);
+            const x2 = ts.timeToCoordinate(st.time);
+            const y = candleSeries.priceToCoordinate(st.level);
+            if (x1 === null || x2 === null || y === null) continue;
+
+            const isBull = st.dir === 'bullish';
+            ctx.save();
+            ctx.strokeStyle = isBull ? '#34d399' : '#fb7185';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y);
+            ctx.lineTo(x2, y);
+            ctx.stroke();
+            ctx.restore();
+
+            const midX = (x1 + x2) / 2;
+            ctx.font = '700 10px Inter, sans-serif';
+            const textW = ctx.measureText(st.type).width + 8;
+            ctx.fillStyle = isBull ? 'rgba(6, 78, 59, 0.9)' : 'rgba(136, 19, 55, 0.9)';
+            ctx.fillRect(midX - textW / 2, isBull ? y - 16 : y + 3, textW, 13);
+            ctx.fillStyle = isBull ? '#6ee7b7' : '#fda4af';
+            ctx.textAlign = 'center';
+            ctx.fillText(st.type, midX, isBull ? y - 6 : y + 13);
+            ctx.textAlign = 'left';
+          }
+        }
+
+        if (state.showVWAP && smc.confluence) {
+          // Draw Volume POC Line
+          const pocY = candleSeries.priceToCoordinate(smc.confluence.pocPrice);
+          if (pocY !== null) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(192, 132, 252, 0.75)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, pocY);
+            ctx.lineTo(maxPlotX, pocY);
+            ctx.stroke();
+            ctx.restore();
+            ctx.font = '700 9px Inter, sans-serif';
+            ctx.fillStyle = '#d8b4fe';
+            ctx.fillText(`POC $${fmtPrice(smc.confluence.pocPrice)}`, 6, pocY - 4 > 10 ? pocY - 4 : pocY + 11);
+          }
+
+          // Draw EQH & EQL Liquidity Pools
+          const drawLiq = (list, label, color) => {
+            for (const item of list) {
+              const y = candleSeries.priceToCoordinate(item.price);
+              let x1 = ts.timeToCoordinate(item.t1);
+              let x2 = ts.timeToCoordinate(item.t2);
+              if (y === null || (x1 === null && x2 === null)) continue;
+              if (x1 === null) x1 = 0;
+              if (x2 === null) x2 = maxPlotX;
+              ctx.save();
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1.2;
+              ctx.setLineDash([2, 3]);
+              ctx.beginPath();
+              ctx.moveTo(x1, y);
+              ctx.lineTo(Math.max(x2, x1 + 30), y);
+              ctx.stroke();
+              ctx.restore();
+              ctx.font = '700 9px Inter, sans-serif';
+              ctx.fillStyle = color;
+              ctx.fillText(label, Math.max(x2, x1 + 30) + 4, y + 3);
+            }
+          };
+          drawLiq(smc.confluence.eqh || [], 'EQH $$$', '#fde047');
+          drawLiq(smc.confluence.eql || [], 'EQL $$$', '#fde047');
+        }
+
+        if (smc.swings) {
+          ctx.font = '700 10px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          for (const sw of smc.swings) {
+            const x = ts.timeToCoordinate(sw.time);
+            const y = candleSeries.priceToCoordinate(sw.price);
+            if (x === null || y === null) continue;
+            ctx.fillStyle = sw.kind === 'high' ? '#fbbf24' : '#38bdf8';
+            ctx.fillText(sw.label, x, sw.kind === 'high' ? y - 6 : y + 12);
+          }
+          ctx.textAlign = 'left';
+        }
+      }
+    }
+
+    function clearPriceLines() {
+      if (!candleSeries) return;
+      state.priceLines.forEach(pl => {
+        try { candleSeries.removePriceLine(pl); } catch (e) {}
+      });
+      state.priceLines = [];
+    }
+
+    function renderSMC() {
+      if (!state.candles.length || !candleSeries) return;
+      const visibleCandles = state.replayMode
+        ? state.candles.slice(0, Math.max(30, Math.min(state.candles.length, state.replayIndex + 1)))
+        : state.candles;
+
+      if (state.replayMode) {
+        const cur = visibleCandles[visibleCandles.length - 1];
+        document.getElementById('replayStepLabel').textContent = `แท่งที่ ${visibleCandles.length} / ${state.candles.length} (${fmtTime(cur.time)})`;
+      }
+
+      const smc = computeSMC(visibleCandles, state.swingLength);
+      state.lastSMC = smc;
+      state.lastVisibleCandles = visibleCandles;
+      const last = visibleCandles[visibleCandles.length - 1];
+      const first = visibleCandles[0];
+      const diff = last.close - first.open;
+      const pct = first.open ? (diff / first.open) * 100 : 0;
+
+      // Update Header Readouts
+      document.getElementById('livePrice').textContent = `$${fmtPrice(last.close)}`;
+      const chEl = document.getElementById('liveChange');
+      chEl.textContent = `${diff >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+      chEl.className = `text-xs font-semibold tabular-nums ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const biasEl = document.getElementById('biasBadge');
+      biasEl.textContent = smc.bias === 'Bullish' ? 'Bullish (ขาขึ้น)' : smc.bias === 'Bearish' ? 'Bearish (ขาลง)' : 'Sideway';
+      biasEl.className = `mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${
+        smc.bias === 'Bullish' ? 'bg-emerald-500/20 text-emerald-300' :
+        smc.bias === 'Bearish' ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-300'
+      }`;
+
+      const eq = smc.swingHigh && smc.swingLow ? (smc.swingHigh + smc.swingLow) / 2 : last.close;
+      const isDiscount = last.close <= eq;
+      const zoneEl = document.getElementById('zoneBadge');
+      zoneEl.textContent = isDiscount ? 'Discount (<50%)' : 'Premium (>50%)';
+      zoneEl.className = `mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${
+        isDiscount ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
+      }`;
+
+      const atrPct = last.close ? ((smc.atr / last.close) * 100) : 0;
+      const atrEl = document.getElementById('atrBadge');
+      const volLabel = atrPct >= 0.8 ? 'สูง' : atrPct >= 0.35 ? 'ปานกลาง' : 'ต่ำ';
+      atrEl.textContent = `$${fmtPrice(smc.atr)} (${atrPct.toFixed(2)}% • ${volLabel})`;
+      atrEl.className = `mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
+        atrPct >= 0.8 ? 'bg-rose-500/15 text-rose-300' : atrPct >= 0.35 ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'
+      }`;
+
+      // Chart Data & Markers
+      candleSeries.setData(visibleCandles);
+      if (vwapSeries) {
+        if (state.showVWAP && smc.confluence && smc.confluence.vwapLine.length) {
+          vwapSeries.setData(smc.confluence.vwapLine);
+        } else {
+          vwapSeries.setData([]);
+        }
+      }
+      clearPriceLines();
+
+      if (state.showStructure) {
+        const markers = smc.structures.map(s => ({
+          time: s.time,
+          position: s.dir === 'bullish' ? 'aboveBar' : 'belowBar',
+          color: s.dir === 'bullish' ? '#34d399' : '#fb7185',
+          shape: s.dir === 'bullish' ? 'arrowUp' : 'arrowDown',
+          text: `${s.type}`
+        })).sort((a, b) => a.time - b.time);
+        candleSeries.setMarkers(markers);
+      } else {
+        candleSeries.setMarkers([]);
+      }
+
+      // Draw Order Block Lines
+      if (state.showOB) {
+        const bullOB = smc.orderBlocks.find(o => o.dir === 'bullish');
+        const bearOB = smc.orderBlocks.find(o => o.dir === 'bearish');
+
+        if (bullOB) {
+          state.priceLines.push(
+            candleSeries.createPriceLine({ price: bullOB.top, color: '#10b981', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Bull OB Top' }),
+            candleSeries.createPriceLine({ price: bullOB.bottom, color: '#059669', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: true, title: 'Bull OB SL' })
+          );
+        }
+        if (bearOB) {
+          state.priceLines.push(
+            candleSeries.createPriceLine({ price: bearOB.top, color: '#e11d48', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: true, title: 'Bear OB SL' }),
+            candleSeries.createPriceLine({ price: bearOB.bottom, color: '#f43f5e', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Bear OB Bot' })
+          );
+        }
+      }
+
+      // Draw EQ 50%
+      if (state.showEQ && smc.swingHigh && smc.swingLow) {
+        state.priceLines.push(
+          candleSeries.createPriceLine({ price: eq, color: '#f59e0b', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: 'EQ 50%' })
+        );
+      }
+
+      // Sidebar Entry Zone Cards + Trade Plan Status
+      const bullOB = smc.orderBlocks.find(o => o.dir === 'bullish');
+      const bearOB = smc.orderBlocks.find(o => o.dir === 'bearish');
+
+      function evaluateSetupStatus(dir, ob) {
+        if (!ob) {
+          return {
+            code: 'NO_SETUP',
+            label: 'ไม่มีโซน (No Setup)',
+            badgeCls: 'bg-slate-800 text-slate-400 ring-1 ring-slate-700',
+            note: `ยังไม่พบ ${dir === 'bullish' ? 'Bullish OB' : 'Bearish OB'} ที่ยังไม่ถูก Mitigate ในช่วงเวลานี้`
+          };
+        }
+        const price = last.close;
+        const inZone = price >= ob.bottom && price <= ob.top;
+        const trendOk = dir === 'bullish' ? smc.bias === 'Bullish' : smc.bias === 'Bearish';
+        const obMid = (ob.top + ob.bottom) / 2;
+        const zoneOk = dir === 'bullish' ? obMid <= eq : obMid >= eq;
+
+        if (!trendOk || !zoneOk) {
+          const reasons = [];
+          if (!trendOk) reasons.push(`Bias ปัจจุบันคือ ${smc.bias}`);
+          if (!zoneOk) reasons.push(`โซนไม่อยู่ในฝั่ง ${dir === 'bullish' ? 'Discount (<50%)' : 'Premium (>50%)'}`);
+          return {
+            code: 'NOT_ALIGNED',
+            label: 'ไม่ตรงแผน (No Trade)',
+            badgeCls: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30',
+            note: reasons.join(' • ')
+          };
+        }
+        if (inZone) {
+          return {
+            code: 'IN_ZONE',
+            label: 'เข้าโซน + ตามแผน (Ready)',
+            badgeCls: dir === 'bullish'
+              ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40 animate-pulse'
+              : 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40 animate-pulse',
+            note: `ราคาปัจจุบัน ($${fmtPrice(price)}) แตะโซนแล้ว และสอดคล้องกับแผน ${dir === 'bullish' ? 'Buy' : 'Sell'}`
+          };
+        }
+        let dist = 0;
+        let dirTxt = '';
+        if (dir === 'bullish') {
+          dist = price > ob.top ? price - ob.top : ob.bottom - price;
+          dirTxt = price > ob.top ? 'รอราคาย่อลงอีก' : 'ราคาต่ำกว่าโซนอยู่';
+        } else {
+          dist = price < ob.bottom ? ob.bottom - price : price - ob.top;
+          dirTxt = price < ob.bottom ? 'รอราคาเด้งขึ้นอีก' : 'ราคาสูงกว่าโซนอยู่';
+        }
+        const pctDist = price ? ((dist / price) * 100).toFixed(2) : '0.00';
+        return {
+          code: 'WAITING',
+          label: 'รอเข้าโซน (Waiting)',
+          badgeCls: 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30',
+          note: `${dirTxt} $${fmtPrice(dist)} (${pctDist}%)`
+        };
+      }
+
+      const longStatus = evaluateSetupStatus('bullish', bullOB);
+      const shortStatus = evaluateSetupStatus('bearish', bearOB);
+
+      // Render Reversal & Exhaustion Radar
+      if (smc.confluence) {
+        const cf = smc.confluence;
+        const recentChoch = (smc.structures || []).find(s => s.type === 'CHoCH' && (visibleCandles.length - 1 - s.index) <= 10);
+        const bullList = [...(cf.bullReversal || [])];
+        const bearList = [...(cf.bearReversal || [])];
+        if (recentChoch && recentChoch.dir === 'bullish') bullList.push('เกิด Bullish CHoCH ยืนยัน');
+        if (recentChoch && recentChoch.dir === 'bearish') bearList.push('เกิด Bearish CHoCH ยืนยัน');
+
+        const revBadge = document.getElementById('reversalBadge');
+        const revBody = document.getElementById('reversalBody');
+
+        if (bullList.length >= 2 || (recentChoch && recentChoch.dir === 'bullish')) {
+          revBadge.textContent = `🔄 เตรียมกลับตัวขึ้น (${bullList.length}/4)`;
+          revBadge.className = 'rounded-md px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40 animate-pulse';
+          revBody.innerHTML = `<ul class="space-y-1 text-[11px] text-emerald-200">${bullList.map(x => `<li>✓ ${x}</li>`).join('')}</ul>`;
+        } else if (bearList.length >= 2 || (recentChoch && recentChoch.dir === 'bearish')) {
+          revBadge.textContent = `🔄 เตรียมกลับตัวลง (${bearList.length}/4)`;
+          revBadge.className = 'rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40 animate-pulse';
+          revBody.innerHTML = `<ul class="space-y-1 text-[11px] text-rose-200">${bearList.map(x => `<li>✓ ${x}</li>`).join('')}</ul>`;
+        } else if (bullList.length === 1 || bearList.length === 1) {
+          const isB = bullList.length >= bearList.length;
+          const items = isB ? bullList : bearList;
+          revBadge.textContent = isB ? '👀 เริ่มมีสัญญาณชะลอลง' : '👀 เริ่มมีสัญญาณชะลอขึ้น';
+          revBadge.className = 'rounded-md px-2 py-0.5 text-[10px] font-semibold bg-amber-500/15 text-amber-300';
+          revBody.innerHTML = `<p class="text-[11px] text-slate-300">พบ 1 สัญญาณ: <strong class="text-amber-200">${items[0]}</strong> — รอยืนยัน CHoCH หรือสัญญาณที่ 2 เพิ่มเติม</p>`;
+        } else {
+          revBadge.textContent = smc.bias === 'Bearish' ? '📉 ยังไหลลงต่อ (แรงขายยังอยู่)' : smc.bias === 'Bullish' ? '📈 ยังวิ่งขึ้นต่อ (แรงซื้อยังอยู่)' : '⏸️ ยังไม่พบสัญญาณกลับตัว';
+          revBadge.className = 'rounded-md px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300';
+          revBody.innerHTML = '<p class="text-[11px] text-slate-400">ยังไม่พบ RSI Extreme/Divergence, Sweep หรือการดูดซับแรงซื้อ-ขาย</p>';
+        }
+      }
+
+      // Render Confluence & Order Flow Card
+      if (smc.confluence) {
+        const cf = smc.confluence;
+        const scBadge = document.getElementById('confluenceScoreBadge');
+        scBadge.textContent = `${cf.score}% ${cf.score >= 70 ? 'แข็งแกร่ง' : cf.score >= 45 ? 'ปานกลาง' : 'อ่อน'}`;
+        scBadge.className = `rounded-md px-2 py-0.5 text-[11px] font-bold ${
+          cf.score >= 70 ? 'bg-emerald-500/20 text-emerald-300' : cf.score >= 45 ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-300'
+        }`;
+
+        const vwapPos = last.close >= cf.currentVWAP ? 'เหนือ VWAP (Bullish)' : 'ใต้ VWAP (Bearish)';
+        const rsiLabel = cf.rsi >= 70 ? 'Overbought (ระวังย่อ)' : cf.rsi <= 30 ? 'Oversold (ระวังเด้ง)' : 'ปกติ';
+        const cvdTxt = cf.hasTakerData
+          ? `<span class="font-semibold ${cf.cvd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${cf.cvd >= 0 ? '+' : ''}${cf.cvd.toFixed(1)} BTC (${cf.cvd >= 0 ? 'แรงซื้อนำ' : 'แรงขายนำ'})</span>`
+          : '<span class="text-slate-500">ไม่มีข้อมูล Taker จากแหล่งนี้</span>';
+
+        document.getElementById('confluenceBody').innerHTML = `
+          <div class="flex justify-between tabular-nums"><span class="text-slate-400">VWAP (100 แท่ง):</span><span class="text-purple-300 font-medium">$${fmtPrice(cf.currentVWAP)} • ${vwapPos}</span></div>
+          <div class="flex justify-between tabular-nums"><span class="text-slate-400">Volume POC:</span><span class="text-purple-200 font-medium">$${fmtPrice(cf.pocPrice)}</span></div>
+          <div class="flex justify-between tabular-nums"><span class="text-slate-400">Order Flow (CVD 50 แท่ง):</span>${cvdTxt}</div>
+          <div class="flex justify-between tabular-nums"><span class="text-slate-400">RSI (14):</span><span class="font-medium text-slate-200">${cf.rsi.toFixed(1)} (${rsiLabel})</span></div>
+          <div class="flex justify-between tabular-nums border-t border-slate-800 pt-1.5"><span class="text-slate-400">Liquidity Sweep:</span><span class="text-amber-300 font-medium">${cf.sweepMsg}</span></div>
+        `;
+      }
+
+      // Render Overall Plan Status Banner
+      const overallBody = document.getElementById('overallStatusBody');
+      const primary = smc.bias === 'Bullish' ? { side: 'BUY', st: longStatus } : smc.bias === 'Bearish' ? { side: 'SELL', st: shortStatus } : null;
+      if (!primary) {
+        overallBody.innerHTML = `<span class="font-semibold text-slate-300">รอความชัดเจน (Neutral)</span> — ตลาดยังไม่เลือกทาง BOS/CHoCH ชัดเจน`;
+      } else {
+        const sideColor = primary.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400';
+        overallBody.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-semibold ${sideColor}">แผนหลัก: ${primary.side}</span>
+            <span class="rounded-md px-2 py-0.5 text-[10px] font-semibold ${primary.st.badgeCls}">${primary.st.label}</span>
+          </div>
+          <p class="mt-1 text-[11px] text-slate-400">${primary.st.note}</p>
+        `;
+      }
+
+      // Render Long Card
+      const longBadge = document.getElementById('longStatusBadge');
+      longBadge.textContent = longStatus.label;
+      longBadge.className = `rounded-md px-2 py-0.5 text-[10px] font-semibold ${longStatus.badgeCls}`;
+
+      const longBody = document.getElementById('longZoneBody');
+      if (bullOB) {
+        const entry = bullOB.top;
+        const sl = bullOB.bottom - (smc.atr * 0.5);
+        const risk = Math.max(1, entry - sl);
+        const tp1 = entry + risk * 1.0;
+        const tp2 = smc.swingHigh > tp1 ? Math.min(smc.swingHigh, entry + risk * 2.0) : entry + Math.min(risk * 2.0, smc.atr * 2.5);
+        const rr = ((tp2 - entry) / risk).toFixed(2);
+        longBody.innerHTML = `
+          <p class="mb-2 rounded-lg bg-slate-950/70 px-2.5 py-1.5 text-[11px] text-slate-300 border border-slate-800">${longStatus.note}</p>
+          <div class="space-y-1.5 tabular-nums">
+            <div class="flex justify-between"><span class="text-slate-400">โซนเข้า (OB):</span><span class="font-semibold text-emerald-300">$${fmtPrice(bullOB.bottom)} – $${fmtPrice(bullOB.top)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">SL (อิง ATR 0.5x):</span><span class="text-rose-400">$${fmtPrice(sl)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">TP1 (1R + เลื่อนกันทุน BE):</span><span class="text-sky-300">$${fmtPrice(tp1)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">TP2 (เป้าหลัก):</span><span class="text-emerald-400">$${fmtPrice(tp2)}</span></div>
+            <div class="flex justify-between border-t border-slate-800 pt-1.5"><span class="text-slate-400">หัก Spread+Fee ($${state.feeUsd}) ที่ TP1:</span><span class="font-bold ${risk > state.feeUsd * 1.5 ? 'text-emerald-300' : 'text-amber-300'}">${risk > state.feeUsd * 1.5 ? `คุ้ม (เหลือ $${fmtPrice(risk - state.feeUsd)})` : `แคบไป (เหลือ $${fmtPrice(risk - state.feeUsd)})`}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Risk : Reward (TP2)</span><span class="font-bold text-white">1 : ${rr}</span></div>
+          </div>
+        `;
+      } else {
+        longBody.innerHTML = `<p class="text-slate-500">${longStatus.note}</p>`;
+      }
+
+      // Render Short Card
+      const shortBadge = document.getElementById('shortStatusBadge');
+      shortBadge.textContent = shortStatus.label;
+      shortBadge.className = `rounded-md px-2 py-0.5 text-[10px] font-semibold ${shortStatus.badgeCls}`;
+
+      const shortBody = document.getElementById('shortZoneBody');
+      if (bearOB) {
+        const entry = bearOB.bottom;
+        const sl = bearOB.top + (smc.atr * 0.5);
+        const risk = Math.max(1, sl - entry);
+        const tp1 = entry - risk * 1.0;
+        const tp2 = smc.swingLow < tp1 ? Math.max(smc.swingLow, entry - risk * 2.0) : entry - Math.min(risk * 2.0, smc.atr * 2.5);
+        const rr = ((entry - tp2) / risk).toFixed(2);
+        shortBody.innerHTML = `
+          <p class="mb-2 rounded-lg bg-slate-950/70 px-2.5 py-1.5 text-[11px] text-slate-300 border border-slate-800">${shortStatus.note}</p>
+          <div class="space-y-1.5 tabular-nums">
+            <div class="flex justify-between"><span class="text-slate-400">โซนเข้า (OB):</span><span class="font-semibold text-rose-300">$${fmtPrice(bearOB.bottom)} – $${fmtPrice(bearOB.top)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">SL (อิง ATR 0.5x):</span><span class="text-rose-400">$${fmtPrice(sl)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">TP1 (1R + เลื่อนกันทุน BE):</span><span class="text-sky-300">$${fmtPrice(tp1)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">TP2 (เป้าหลัก):</span><span class="text-emerald-400">$${fmtPrice(tp2)}</span></div>
+            <div class="flex justify-between border-t border-slate-800 pt-1.5"><span class="text-slate-400">หัก Spread+Fee ($${state.feeUsd}) ที่ TP1:</span><span class="font-bold ${risk > state.feeUsd * 1.5 ? 'text-emerald-300' : 'text-amber-300'}">${risk > state.feeUsd * 1.5 ? `คุ้ม (เหลือ $${fmtPrice(risk - state.feeUsd)})` : `แคบไป (เหลือ $${fmtPrice(risk - state.feeUsd)})`}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Risk : Reward (TP2)</span><span class="font-bold text-white">1 : ${rr}</span></div>
+          </div>
+        `;
+      } else {
+        shortBody.innerHTML = `<p class="text-slate-500">${shortStatus.note}</p>`;
+      }
+
+      // FVG List
+      document.getElementById('fvgList').innerHTML = smc.fvgs.length
+        ? smc.fvgs.map(f => `
+            <div class="flex items-center justify-between rounded-lg bg-slate-950/70 px-2.5 py-1.5 border border-slate-800">
+              <span class="font-medium ${f.dir === 'bullish' ? 'text-emerald-400' : 'text-rose-400'}">${f.dir === 'bullish' ? 'Bullish FVG' : 'Bearish FVG'}</span>
+              <span class="tabular-nums text-slate-200">$${fmtPrice(f.bottom)} – $${fmtPrice(f.top)}</span>
+            </div>
+          `).join('')
+        : `<p class="text-slate-500">ไม่พบ FVG ที่เปิดค้างอยู่</p>`;
+
+      // Structure Log
+      document.getElementById('structureLog').innerHTML = smc.structures.length
+        ? smc.structures.map(s => `
+            <div class="flex items-center justify-between rounded-lg bg-slate-950/60 px-3 py-2 border border-slate-800/80">
+              <div class="flex items-center gap-2">
+                <span class="rounded px-1.5 py-0.5 text-[10px] font-bold ${s.dir === 'bullish' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">${s.type}</span>
+                <span class="text-slate-300">${s.dir === 'bullish' ? 'ทะลุแนวต้านขาขึ้น' : 'หลุดแนวรับขาลง'}</span>
+              </div>
+              <div class="text-right tabular-nums">
+                <span class="font-semibold text-white">$${fmtPrice(s.level)}</span>
+                <span class="block text-[10px] text-slate-500">${fmtTime(s.time)}</span>
+              </div>
+            </div>
+          `).join('')
+        : `<p class="text-slate-500">ยังไม่มีสัญญาณ BOS/CHoCH ในช่วงแท่งเทียนนี้</p>`;
+
+      // Render Win/Loss Statistics (Type 1: Tight Zone vs Type 2: Normal Zone)
+      const st = smc.stats || { total: 0, winsTP2: 0, winsBE: 0, totalWins: 0, losses: 0, openCount: 0, winRate: '--', buyWins: 0, buyLosses: 0, sellWins: 0, sellLosses: 0, allTrades: [], trades: [] };
+      const tst = smc.tightStats || { total: 0, wins: 0, winsTP2: 0, winsBE: 0, losses: 0, openCount: 0, winRate: '--', buyWins: 0, buyLosses: 0, sellWins: 0, sellLosses: 0, allTrades: [] };
+
+      if (st.spanDays) {
+        document.getElementById('statsRangeTitle').textContent = `สถิติความแม่นยำแยก 2 ระบบ: โซนแคบ vs โซนปกติ (ย้อนหลัง ${st.spanDays} วัน • ${visibleCandles.length.toLocaleString()} แท่ง)`;
+      }
+
+      // Type 1: Tight Zone
+      document.getElementById('tightStatTotal').textContent = `${tst.total} ไม้`;
+      document.getElementById('tightStatWins').textContent = `${tst.wins} (${tst.winsTP2 || 0}/${tst.winsBE || 0})`;
+      document.getElementById('tightStatLosses').textContent = `${tst.losses} ไม้`;
+      document.getElementById('tightStatWinRate').textContent = tst.winRate === '--' ? '--%' : `${tst.winRate}%`;
+      document.getElementById('tightSideBreakdown').textContent = `Buy: ${tst.buyWins || 0}W/${tst.buyLosses || 0}L | Sell: ${tst.sellWins || 0}W/${tst.sellLosses || 0}L`;
+      if (tst.today) {
+        document.getElementById('tightTodaySummary').textContent = `วันนี้ (${tst.today.label}): ${tst.today.wins}W/${tst.today.losses}L (${tst.today.winRate === '--' ? '--%' : tst.today.winRate + '%'})`;
+      }
+
+      // Type 2: Normal Zone
+      document.getElementById('statTotal').textContent = `${st.total} ไม้`;
+      document.getElementById('statWins').textContent = `${st.totalWins} (${st.winsTP2}/${st.winsBE})`;
+      document.getElementById('statLosses').textContent = `${st.losses} ไม้`;
+      document.getElementById('statWinRate').textContent = st.winRate === '--' ? '--%' : `${st.winRate}%`;
+      document.getElementById('statsSideBreakdown').textContent = `Buy: ${st.buyWins}W/${st.buyLosses}L | Sell: ${st.sellWins}W/${st.sellLosses}L`;
+      if (st.today) {
+        document.getElementById('normalTodaySummary').textContent = `วันนี้ (${st.today.label}): ${st.today.wins}W/${st.today.losses}L (${st.today.winRate === '--' ? '--%' : st.today.winRate + '%'})`;
+      }
+
+      // Combined Filtered Trade History
+      const normTagged = (st.allTrades || []).map(t => ({ ...t, zoneType: 'normal' }));
+      const tightTagged = (tst.allTrades || []).map(t => ({ ...t, zoneType: 'tight' }));
+      let mergedHist = state.histFilter === 'tight' ? tightTagged
+                     : state.histFilter === 'normal' ? normTagged
+                     : [...normTagged, ...tightTagged];
+      mergedHist.sort((a, b) => b.time - a.time);
+      mergedHist = mergedHist.slice(0, 40);
+
+      document.getElementById('tradeHistoryList').innerHTML = mergedHist.length
+        ? mergedHist.map(t => {
+            const typeBadge = t.zoneType === 'tight'
+              ? '<span class="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">โซนแคบ</span>'
+              : '<span class="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">โซนปกติ</span>';
+            const sideBadge = t.dir === 'bullish'
+              ? '<span class="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">BUY</span>'
+              : '<span class="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">SELL</span>';
+            const outBadge = t.outcome === 'WIN_TP2'
+              ? '<span class="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">WIN TP2</span>'
+              : t.outcome === 'WIN_BE'
+              ? '<span class="rounded bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">TP1 + กันทุน BE</span>'
+              : t.outcome === 'LOSS'
+              ? '<span class="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300">LOSS</span>'
+              : '<span class="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">OPEN</span>';
+            return `
+              <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    ${typeBadge} ${sideBadge}
+                    <span class="font-semibold text-slate-200 tabular-nums">เข้า $${fmtPrice(t.entry)}</span>
+                  </div>
+                  <div class="mt-0.5 text-[10px] text-slate-500 tabular-nums">${fmtTime(t.time)} • SL $${fmtPrice(t.sl)} • TP1 $${fmtPrice(t.tp1)} • TP2 $${fmtPrice(t.tp)}</div>
+                </div>
+                ${outBadge}
+              </div>
+            `;
+          }).join('')
+        : '<p class="text-slate-500 col-span-full">ยังไม่มีไม้ที่ราคาวิ่งเข้ามาแตะโซนในช่วงแท่งเทียนนี้</p>';
+
+      requestAnimationFrame(drawSMCOverlay);
+
+        // Render Tight / Internal Scalp Card
+      const tsStats = smc.tightStats || { total: 0, wins: 0, losses: 0, winRate: '--' };
+      document.getElementById('tightWinRateBadge').textContent = tsStats.winRate === '--' ? 'Win --%' : `Win ${tsStats.winRate}% (${tsStats.wins}/${tsStats.total})`;
+      const tightBody = document.getElementById('tightZoneBody');
+      const tightBull = smc.internalOBs ? smc.internalOBs.find(o => o.dir === 'bullish') : null;
+      const tightBear = smc.internalOBs ? smc.internalOBs.find(o => o.dir === 'bearish') : null;
+      const prefTight = smc.bias === 'Bearish' ? (tightBear || tightBull) : (tightBull || tightBear);
+
+      if (prefTight) {
+        const isBuy = prefTight.dir === 'bullish';
+        const entry = isBuy ? prefTight.top : prefTight.bottom;
+        const sl = isBuy ? prefTight.bottom - (smc.atr * 0.25) : prefTight.top + (smc.atr * 0.25);
+        const risk = Math.max(1, Math.abs(entry - sl));
+        const tp1 = isBuy ? entry + risk * 0.8 : entry - risk * 0.8;
+        const tp2 = isBuy ? entry + risk * 1.5 : entry - risk * 1.5;
+        const inTight = last.close >= prefTight.bottom && last.close <= prefTight.top;
+        const dist = isBuy ? Math.max(0, last.close - prefTight.top) : Math.max(0, prefTight.bottom - last.close);
+        tightBody.innerHTML = `
+          <div class="mb-2 flex items-center justify-between text-[11px]">
+            <span class="font-semibold ${isBuy ? 'text-emerald-300' : 'text-rose-300'}">${isBuy ? 'Tight BUY (Internal)' : 'Tight SELL (Internal)'}</span>
+            <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold ${inTight ? 'bg-cyan-500/20 text-cyan-300 animate-pulse' : 'bg-slate-800 text-slate-300'}">${inTight ? 'เข้าโซนแคบแล้ว!' : `ห่าง $${fmtPrice(dist)}`}</span>
+          </div>
+          <div class="space-y-1 tabular-nums">
+            <div class="flex justify-between"><span class="text-slate-400">โซนแคบ:</span><span class="font-semibold text-cyan-300">$${fmtPrice(prefTight.bottom)} – $${fmtPrice(prefTight.top)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">SL แคบ (0.25x ATR):</span><span class="text-rose-400">$${fmtPrice(sl)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">TP1 (0.8R BE) / TP2 (1.5R):</span><span class="text-emerald-400">$${fmtPrice(tp1)} / $${fmtPrice(tp2)}</span></div>
+          </div>
+        `;
+      } else {
+        tightBody.innerHTML = `<p class="text-slate-500">ยังไม่พบ Internal OB สำหรับเล่นแคบในกรอบนี้</p>`;
+      }
+
+      requestAnimationFrame(drawSMCOverlay);
+
+      // Render Live Simulated Running Orders (Auto SMC OPEN + Manual Paper Orders)
+      const autoOpen = (st.allTrades || []).filter(t => t.outcome === 'OPEN').map((t, idx) => ({
+        id: `auto-${idx}`,
+        isManual: false,
+        dir: t.dir,
+        entry: t.entry,
+        sl: t.sl,
+        tp1: t.tp1,
+        tp: t.tp,
+        time: t.time,
+        lot: state.simLot
+      }));
+
+      // Auto-close manual orders if SL or TP2 hit by live price
+      for (const mo of state.manualOrders) {
+        if (mo.closed) continue;
+        if (mo.dir === 'bullish') {
+          if (last.close <= mo.sl) { mo.closed = true; mo.exitReason = 'โดน SL'; }
+          else if (last.close >= mo.tp) { mo.closed = true; mo.exitReason = 'ถึง TP2'; }
+        } else {
+          if (last.close >= mo.sl) { mo.closed = true; mo.exitReason = 'โดน SL'; }
+          else if (last.close <= mo.tp) { mo.closed = true; mo.exitReason = 'ถึง TP2'; }
+        }
+      }
+
+      const activeManual = state.manualOrders.filter(m => !m.closed);
+      const runningAll = [...activeManual, ...autoOpen];
+      let totalPnl = 0;
+
+      const runListEl = document.getElementById('runningOrdersList');
+      if (runningAll.length === 0) {
+        runListEl.innerHTML = '<p class="text-slate-500">ยังไม่มีออเดอร์ที่กำลังเปิดวิ่งอยู่ในขณะนี้ (กด "+ จำลอง BUY" หรือ "+ จำลอง SELL" เพื่อทดลองเปิดไม้ที่ราคาสด)</p>';
+      } else {
+        runListEl.innerHTML = runningAll.map(ord => {
+          const isBuy = ord.dir === 'bullish';
+          const rawDiff = isBuy ? (last.close - ord.entry) : (ord.entry - last.close);
+          const netPerBtc = rawDiff - state.feeUsd;
+          const pnl = netPerBtc * ord.lot;
+          totalPnl += pnl;
+          const pnlCls = pnl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+          const sideTag = isBuy
+            ? '<span class="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">BUY</span>'
+            : '<span class="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">SELL</span>';
+          const srcTag = ord.isManual
+            ? '<span class="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] text-indigo-300">จำลองเอง</span>'
+            : '<span class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">SMC Auto</span>';
+          const closeBtn = ord.isManual
+            ? `<button type="button" data-close-ord="${ord.id}" class="close-ord-btn rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800 hover:text-white">ปิดไม้</button>`
+            : '';
+
+          return `
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2.5 tabular-nums">
+              <div>
+                <div class="flex items-center gap-2">
+                  ${sideTag} ${srcTag}
+                  <span class="font-semibold text-white">${ord.lot.toFixed(2)} Lot</span>
+                  <span class="text-slate-400">เข้า $${fmtPrice(ord.entry)} → ตอนนี้ $${fmtPrice(last.close)}</span>
+                </div>
+                <div class="mt-0.5 text-[10px] text-slate-500">${fmtTime(ord.time)} • SL $${fmtPrice(ord.sl)} • TP1 $${fmtPrice(ord.tp1)} • TP2 $${fmtPrice(ord.tp)}</div>
+              </div>
+              <div class="flex items-center gap-2.5">
+                <span class="text-sm font-bold ${pnlCls}">${pnl >= 0 ? '+' : '-'}$${Math.abs(pnl).toFixed(2)}</span>
+                ${closeBtn}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        runListEl.querySelectorAll('.close-ord-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-close-ord');
+            const target = state.manualOrders.find(m => m.id === id);
+            if (target) {
+              target.closed = true;
+              renderSMC();
+              showToast('ปิดออเดอร์จำลองแล้ว');
+            }
+          });
+        });
+      }
+
+      const totBadge = document.getElementById('totalFloatingBadge');
+      totBadge.textContent = `P/L รวม: ${totalPnl >= 0 ? '+' : '-'}$${Math.abs(totalPnl).toFixed(2)}`;
+      totBadge.className = `rounded-lg px-2.5 py-1 text-xs font-bold tabular-nums ${
+        totalPnl > 0 ? 'bg-emerald-500/20 text-emerald-300' : totalPnl < 0 ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-200'
+      }`;
+
+      // Order Blocks Log
+      document.getElementById('obLog').innerHTML = smc.orderBlocks.length
+        ? smc.orderBlocks.map(o => `
+            <div class="flex items-center justify-between rounded-lg bg-slate-950/60 px-3 py-2 border border-slate-800/80">
+              <div class="flex items-center gap-2">
+                <span class="rounded px-1.5 py-0.5 text-[10px] font-bold ${o.dir === 'bullish' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">${o.dir === 'bullish' ? 'Demand OB' : 'Supply OB'}</span>
+                <span class="text-slate-400 text-[11px]">${fmtTime(o.time)}</span>
+              </div>
+              <span class="font-semibold text-slate-100 tabular-nums">$${fmtPrice(o.bottom)} – $${fmtPrice(o.top)}</span>
+            </div>
+          `).join('')
+        : `<p class="text-slate-500">ไม่มี Order Block ค้างอยู่</p>`;
+    }
+
+    function clearDisconnectedUI() {
+      if (candleSeries) candleSeries.setData([]);
+      if (vwapSeries) vwapSeries.setData([]);
+      clearPriceLines();
+      const canvas = document.getElementById('smcOverlay');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      document.getElementById('livePrice').textContent = '--';
+      document.getElementById('liveChange').textContent = '--';
+      document.getElementById('biasBadge').textContent = '--';
+      document.getElementById('zoneBadge').textContent = '--';
+      document.getElementById('atrBadge').textContent = '--';
+      document.getElementById('reversalBadge').textContent = '--';
+      document.getElementById('reversalBody').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('overallStatusBody').innerHTML = '<span class="text-rose-300">ไม่ได้เชื่อมต่อข้อมูลตลาดจริง</span>';
+      document.getElementById('longZoneBody').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('shortZoneBody').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('tightZoneBody').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('fvgList').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('structureLog').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('obLog').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('tradeHistoryList').innerHTML = '<p class="text-slate-500 col-span-full">รอเชื่อมต่อข้อมูลจริง...</p>';
+      document.getElementById('statTotal').textContent = '0 ไม้';
+      document.getElementById('statWins').textContent = '0 ไม้';
+      document.getElementById('statLosses').textContent = '0 ไม้';
+      document.getElementById('statWinRate').textContent = '--%';
+      document.getElementById('runningOrdersList').innerHTML = '<p class="text-slate-500">รอเชื่อมต่อข้อมูลจริง...</p>';
+    }
+
+    async function loadAndRender(isManual = false) {
+      const result = await fetchLiveCandles(state.timeframe, null, (partial) => {
+        if (partial && partial.candles && partial.candles.length > 0) {
+          state.candles = partial.candles;
+          state.dataSourceName = partial.source;
+          document.getElementById('connDot').className = 'h-2 w-2 rounded-full bg-emerald-400 animate-pulse';
+          document.getElementById('connText').textContent = `${partial.source} (${state.timeframe} • ${partial.candles.length} แท่ง กำลังโหลดเพิ่ม...)`;
+          document.getElementById('fallbackBanner').classList.add('hidden');
+          renderSMC();
+        }
+      });
+      state.candles = result.candles;
+      state.dataSourceName = result.source;
+
+      const isLive = result.source !== 'Disconnected' && state.candles.length > 0;
+      document.getElementById('connDot').className = `h-2 w-2 rounded-full ${isLive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`;
+      document.getElementById('connText').textContent = isLive ? `${result.source} (${state.timeframe} • ${state.candles.length} แท่ง)` : 'เชื่อมต่อ API ไม่ได้ (ไม่มีข้อมูล)';
+      document.getElementById('fallbackBanner').classList.toggle('hidden', isLive);
+      document.getElementById('lastUpdateText').textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+
+      if (!isLive) {
+        clearDisconnectedUI();
+        if (isManual) showToast('ไม่สามารถเชื่อมต่อ API ตลาดได้');
+        return;
+      }
+
+      renderSMC();
+      if (isManual) showToast(`อัปเดตข้อมูล ${state.timeframe} สำเร็จ (${result.source})`);
+    }
+
+    async function fetchFastTick() {
+      if (state.replayMode || state.tickBusy || !state.candles.length) return;
+      state.tickBusy = true;
+      try {
+        let livePrice = null;
+        let liveSpread = null;
+        const bookUrls = [
+          'https://data-api.binance.vision/api/v3/ticker/bookTicker?symbol=BTCUSDT',
+          'https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT'
+        ];
+        for (const u of bookUrls) {
+          try {
+            const r = await fetch(u, { cache: 'no-store' });
+            if (r.ok) {
+              const d = await r.json();
+              if (d && d.bidPrice && d.askPrice) {
+                const bid = parseFloat(d.bidPrice);
+                const ask = parseFloat(d.askPrice);
+                livePrice = (bid + ask) / 2;
+                liveSpread = Math.max(0, ask - bid);
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (livePrice === null) {
+          try {
+            const r = await fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD', { cache: 'no-store' });
+            if (r.ok) {
+              const d = await r.json();
+              const k = Object.keys(d.result || {})[0];
+              if (k && d.result[k]?.c?.[0]) livePrice = parseFloat(d.result[k].c[0]);
+            }
+          } catch (e) {}
+        }
+
+        if (liveSpread !== null && Number.isFinite(liveSpread)) {
+          document.getElementById('liveSpreadBadge').textContent = `Binance Spread: $${liveSpread.toFixed(2)}`;
+        }
+        if (livePrice !== null && Number.isFinite(livePrice)) {
+          const last = state.candles[state.candles.length - 1];
+          last.close = livePrice;
+          if (livePrice > last.high) last.high = livePrice;
+          if (livePrice < last.low) last.low = livePrice;
+          if (candleSeries) candleSeries.update(last);
+
+          const now = new Date();
+          const ms = String(now.getMilliseconds()).padStart(3, '0');
+          document.getElementById('lastUpdateText').textContent = `อัปเดตล่าสุด: ${now.toLocaleTimeString('th-TH')}.${ms}`;
+          renderSMC();
+        }
+      } finally {
+        state.tickBusy = false;
+      }
+    }
+
+    function resetPolling() {
+      if (state.tickTimer) {
+        clearInterval(state.tickTimer);
+        state.tickTimer = null;
+      }
+      if (state.historyTimer) {
+        clearInterval(state.historyTimer);
+        state.historyTimer = null;
+      }
+      if (state.autoPoll) {
+        state.tickTimer = setInterval(fetchFastTick, state.pollMs);
+        state.historyTimer = setInterval(() => loadAndRender(false), 30000);
+      }
+    }
+
+    // Bind Controls
+
+
+    document.querySelectorAll('.tf-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.timeframe = btn.getAttribute('data-tf');
+        document.querySelectorAll('.tf-btn').forEach(b => {
+          const active = b === btn;
+          b.className = `tf-btn rounded-md px-2.5 py-1 text-xs font-medium transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`;
+        });
+        loadAndRender(true);
+      });
+    });
+
+    document.getElementById('swingSelect').addEventListener('change', e => {
+      state.swingLength = parseInt(e.target.value, 10) || 10;
+      renderSMC();
+    });
+
+    document.getElementById('chkStructure').addEventListener('change', e => {
+      state.showStructure = e.target.checked;
+      renderSMC();
+    });
+
+    document.getElementById('chkOB').addEventListener('change', e => {
+      state.showOB = e.target.checked;
+      renderSMC();
+    });
+
+    document.getElementById('chkHistZones').addEventListener('change', e => {
+      state.showHistZones = e.target.checked;
+      renderSMC();
+    });
+
+    document.getElementById('chkEQ').addEventListener('change', e => {
+      state.showEQ = e.target.checked;
+      renderSMC();
+    });
+
+    document.getElementById('chkTightMode').addEventListener('change', e => {
+      state.showTight = e.target.checked;
+      renderSMC();
+    });
+
+    document.getElementById('chkVWAP').addEventListener('change', e => {
+      state.showVWAP = e.target.checked;
+      renderSMC();
+    });
+
+    function updateCostState() {
+      state.feeUsd = Number((state.spreadUsd + state.commUsd).toFixed(2));
+      document.getElementById('totalCostBadge').textContent = `รวม $${state.feeUsd.toFixed(2)}`;
+      renderSMC();
+    }
+
+    document.getElementById('brokerSelect').addEventListener('change', e => {
+      const v = e.target.value;
+      const commMap = { ex_raw: 2, ex_zero: 4.375, ex_std: 0, xm_std: 0 };
+      state.commUsd = commMap[v] ?? 0;
+      updateCostState();
+    });
+
+    document.getElementById('feeInput').addEventListener('input', e => {
+      state.spreadUsd = Math.max(0, parseFloat(e.target.value) || 0);
+      updateCostState();
+    });
+
+    function openManualSimOrder(dir) {
+      if (!state.candles.length) {
+        showToast('ยังไม่มีข้อมูลราคาตลาดจริง');
+        return;
+      }
+      const visible = state.replayMode
+        ? state.candles.slice(0, Math.max(30, Math.min(state.candles.length, state.replayIndex + 1)))
+        : state.candles;
+      const lastBar = visible[visible.length - 1];
+      const atr = state.lastSMC?.atr || (lastBar.close * 0.004);
+      const entry = lastBar.close;
+      const sl = dir === 'bullish' ? entry - atr * 1.2 : entry + atr * 1.2;
+      const risk = Math.max(1, Math.abs(entry - sl));
+      const tp1 = dir === 'bullish' ? entry + risk * 1.0 : entry - risk * 1.0;
+      const tp = dir === 'bullish' ? entry + risk * 2.0 : entry - risk * 2.0;
+
+      state.manualOrders.unshift({
+        id: 'man-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        isManual: true,
+        dir,
+        entry,
+        sl,
+        tp1,
+        tp,
+        time: lastBar.time,
+        lot: state.simLot,
+        closed: false
+      });
+      renderSMC();
+      showToast(`เปิดออเดอร์จำลอง ${dir === 'bullish' ? 'BUY' : 'SELL'} ${state.simLot.toFixed(2)} Lot ที่ $${fmtPrice(entry)}`);
+    }
+
+    document.getElementById('simLotSelect').addEventListener('change', e => {
+      state.simLot = parseFloat(e.target.value) || 0.01;
+      renderSMC();
+    });
+    document.getElementById('simOpenBuyBtn').addEventListener('click', () => openManualSimOrder('bullish'));
+    document.getElementById('simOpenSellBtn').addEventListener('click', () => openManualSimOrder('bearish'));
+
+    document.querySelectorAll('.hist-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.histFilter = btn.getAttribute('data-hist-filter') || 'all';
+        document.querySelectorAll('.hist-filter-btn').forEach(b => {
+          const active = b === btn;
+          b.className = `hist-filter-btn rounded px-2.5 py-0.5 font-medium ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`;
+        });
+        renderSMC();
+      });
+    });
+
+    function stopReplayPlay() {
+      state.replayPlaying = false;
+      if (state.replayTimer) {
+        clearInterval(state.replayTimer);
+        state.replayTimer = null;
+      }
+      document.getElementById('replayPlayBtn').textContent = '▶ เล่น';
+    }
+
+    function setReplayMode(on) {
+      state.replayMode = on;
+      const bar = document.getElementById('replayBar');
+      const btn = document.getElementById('replayToggleBtn');
+      if (on) {
+        const maxIdx = Math.max(40, state.candles.length - 1);
+        const slider = document.getElementById('replaySlider');
+        slider.min = 40;
+        slider.max = maxIdx;
+        state.replayIndex = Math.max(40, Math.floor(maxIdx * 0.65));
+        slider.value = state.replayIndex;
+        bar.classList.remove('hidden');
+        btn.className = 'rounded-lg border border-violet-400 bg-violet-600 px-2.5 py-1 text-xs font-medium text-white transition';
+        showToast('เปิดโหมด Time Machine: กด "ถัดไป ▶" เพื่อทดสอบโซนมาตรฐานและโซนเล่นแคบทีละแท่ง');
+      } else {
+        stopReplayPlay();
+        bar.classList.add('hidden');
+        btn.className = 'rounded-lg border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-300 hover:bg-violet-500/25 transition';
+      }
+      renderSMC();
+    }
+
+    document.getElementById('replayToggleBtn').addEventListener('click', () => setReplayMode(!state.replayMode));
+    document.getElementById('replayExitBtn').addEventListener('click', () => setReplayMode(false));
+
+    document.getElementById('replaySlider').addEventListener('input', e => {
+      stopReplayPlay();
+      state.replayIndex = parseInt(e.target.value, 10) || 40;
+      renderSMC();
+    });
+
+    document.getElementById('replayPrevBtn').addEventListener('click', () => {
+      stopReplayPlay();
+      state.replayIndex = Math.max(40, state.replayIndex - 1);
+      document.getElementById('replaySlider').value = state.replayIndex;
+      renderSMC();
+    });
+
+    document.getElementById('replayNextBtn').addEventListener('click', () => {
+      stopReplayPlay();
+      state.replayIndex = Math.min(state.candles.length - 1, state.replayIndex + 1);
+      document.getElementById('replaySlider').value = state.replayIndex;
+      renderSMC();
+    });
+
+    document.getElementById('replayPlayBtn').addEventListener('click', () => {
+      if (state.replayPlaying) {
+        stopReplayPlay();
+        return;
+      }
+      if (state.replayIndex >= state.candles.length - 1) {
+        state.replayIndex = 40;
+      }
+      state.replayPlaying = true;
+      document.getElementById('replayPlayBtn').textContent = '⏸ หยุด';
+      state.replayTimer = setInterval(() => {
+        if (state.replayIndex >= state.candles.length - 1) {
+          stopReplayPlay();
+          showToast('เล่น Time Machine ถึงแท่งล่าสุดแล้ว');
+          return;
+        }
+        state.replayIndex += 1;
+        document.getElementById('replaySlider').value = state.replayIndex;
+        renderSMC();
+      }, 600);
+    });
+
+    function updatePollBtnLabel() {
+      const btn = document.getElementById('autoPollBtn');
+      const labelSpeed = state.pollMs < 1000 ? `${state.pollMs}ms` : `${state.pollMs / 1000}s`;
+      btn.textContent = state.autoPoll ? `Live: เปิด (${labelSpeed})` : 'Live: ปิด';
+      btn.className = state.autoPoll
+        ? 'rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 transition'
+        : 'rounded-lg border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-400 hover:text-white transition';
+    }
+
+    document.getElementById('pollSpeedSelect').addEventListener('change', e => {
+      state.pollMs = parseInt(e.target.value, 10) || 500;
+      updatePollBtnLabel();
+      resetPolling();
+      showToast(`ปรับความเร็วอัปเดตราคาเป็น ${state.pollMs < 1000 ? state.pollMs + 'ms' : (state.pollMs / 1000) + 's'} แล้ว`);
+    });
+
+    document.getElementById('autoPollBtn').addEventListener('click', () => {
+      state.autoPoll = !state.autoPoll;
+      updatePollBtnLabel();
+      resetPolling();
+    });
+
+    document.getElementById('refreshNowBtn').addEventListener('click', () => loadAndRender(true));
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initChart();
+      loadAndRender(false);
+      resetPolling();
+    });
+  </script>
+</body>
+</html>
